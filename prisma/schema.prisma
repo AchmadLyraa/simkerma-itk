@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client"
+  output="./generated"
+  engineType= "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// 1. ORGANISASI (satu model generic, self-referencing)
+// ============================================================
+
+enum OrgUnitType {
+  INSTITUTION
+  FACULTY
+  DEPARTMENT
+  STUDY_PROGRAM
+}
+
+model OrganizationalUnit {
+  id       String      @id @default(uuid())
+  name     String
+  type     OrgUnitType
+  parentId String?     @map("parent_id")
+  parent   OrganizationalUnit?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children OrganizationalUnit[] @relation("OrgHierarchy")
+
+  cooperations          Cooperation[]
+  cooperationStudyPrograms CooperationStudyProgram[]
+  activities            CooperationActivity[]
+  participants          ActivityParticipant[]
+  partners              Partner[]
+  userScopes            UserOrganizationalUnit[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("organizational_units")
+}
+
+// ============================================================
+// 2. MITRA
+// ============================================================
+
+model PartnerCategory {
+  id   String @id @default(uuid())
+  name String @unique
+
+  partners Partner[]
+
+  @@map("partner_categories")
+}
+
+model Partner {
+  id                   String             @id @default(uuid())
+  name                 String
+  categoryId           String             @map("category_id")
+  category             PartnerCategory    @relation(fields: [categoryId], references: [id])
+  organizationalUnitId String             @map("organizational_unit_id")
+  organizationalUnit   OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id])
+  address    String?
+  website    String?
+  isActive   Boolean  @default(true) @map("is_active")
+
+  contacts     PartnerContact[]
+  cooperations Cooperation[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("partners")
+}
+
+// Kontak umum mitra — banyak per partner, TIDAK sama dengan cp_di_pks
+model PartnerContact {
+  id        String  @id @default(uuid())
+  partnerId String  @map("partner_id")
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  name      String
+  position  String?
+  phone     String?
+  email     String?
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("partner_contacts")
+}
+
+// ============================================================
+// 3. KERJA SAMA (cooperations) — inti sistem, punya approval workflow
+// ============================================================
+
+enum CooperationRegionName {
+  LOKAL
+  NASIONAL
+  INTERNASIONAL
+}
+
+model CooperationRegion {
+  id   String                @id @default(uuid())
+  name CooperationRegionName @unique
+
+  cooperations Cooperation[]
+
+  @@map("cooperation_regions")
+}
+
+model TridharmaCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique // Pendidikan | Penelitian | Pengabdian kepada Masyarakat
+  description String?
+  active      Boolean @default(true)
+
+  cooperationLinks CooperationTridharmaCategory[]
+
+  @@map("tridharma_categories")
+}
+
+// Status approval workflow: Prodi -> Jurusan -> Fakultas -> Institut
+enum CooperationStatus {
+  DRAFT
+  SUBMITTED_JURUSAN
+  SUBMITTED_FAKULTAS
+  SUBMITTED_INSTITUT
+  APPROVED
+  LOCKED
+  REJECTED
+}
+
+model Cooperation {
+  id     String @id @default(uuid())
+
+  partnerId String  @map("partner_id")
+  partner   Partner @relation(fields: [partnerId], references: [id])
+
+  name      String
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+  benefit   String?
+
+  regionId String?            @map("region_id")
+  region   CooperationRegion? @relation(fields: [regionId], references: [id])
+
+  status  CooperationStatus @default(DRAFT)
+  notes   String?
+
+  // Kontak khusus yang tercantum di dokumen PKS — TERPISAH dari partner_contacts
+  cpDiPks String? @map("cp_di_pks")
+
+  organizationalUnitId String             @map("organizational_unit_id")
+  organizationalUnit   OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id])
+
+  createdById String @map("created_by")
+  createdBy   User   @relation("CooperationCreatedBy", fields: [createdById], references: [id])
+
+  documents         CooperationDocument[]
+  activities        CooperationActivity[]
+  studyPrograms     CooperationStudyProgram[]
+  tridharmaCategories CooperationTridharmaCategory[]
+  approvals         CooperationApproval[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cooperations")
+}
+
+// Many-to-many: cooperation <-> organizational_unit (prodi yang terlibat)
+model CooperationStudyProgram {
+  cooperationId         String             @map("cooperation_id")
+  cooperation           Cooperation        @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+  organizationalUnitId  String             @map("organizational_unit_id")
+  organizationalUnit    OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id])
+
+  @@id([cooperationId, organizationalUnitId])
+  @@map("cooperation_study_programs")
+}
+
+// Many-to-many: cooperation <-> tridharma
+model CooperationTridharmaCategory {
+  cooperationId        String            @map("cooperation_id")
+  cooperation          Cooperation       @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+  tridharmaCategoryId  String            @map("tridharma_category_id")
+  tridharmaCategory    TridharmaCategory @relation(fields: [tridharmaCategoryId], references: [id])
+
+  @@id([cooperationId, tridharmaCategoryId])
+  @@map("cooperation_tridharma_categories")
+}
+
+enum DocumentType {
+  MOU
+  PKS
+  IA
+}
+
+enum DocumentSource {
+  LINK
+  UPLOAD
+}
+
+model CooperationDocument {
+  id             String       @id @default(uuid())
+  cooperationId  String       @map("cooperation_id")
+  cooperation    Cooperation  @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+
+  documentType   DocumentType @map("document_type")
+  documentNumber String?      @map("document_number")
+  title          String
+  documentSource DocumentSource @default(LINK) @map("document_source")
+
+  filePath String? @map("file_path")
+  fileUrl  String? @map("file_url")
+  mimeType String? @map("mime_type")
+  fileSize Int?    @map("file_size")
+  checksum String?
+
+  issueDate DateTime? @map("issue_date")
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+  status    String    @default("active")
+
+  uploadedById String @map("uploaded_by")
+  uploadedBy   User   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cooperation_documents")
+}
+
+// Log approval per level (jurusan/fakultas/institut) — histori, bukan overwrite status doang
+model CooperationApproval {
+  id            String      @id @default(uuid())
+  cooperationId String      @map("cooperation_id")
+  cooperation   Cooperation @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+
+  organizationalUnitId String @map("organizational_unit_id") // unit yang melakukan approval
+  approvedById          String @map("approved_by")
+  approvedBy            User   @relation("ApprovalActor", fields: [approvedById], references: [id])
+
+  action String // 'approved' | 'rejected'
+  note   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("cooperation_approvals")
+}
+
+// ============================================================
+// 4. KEGIATAN / REALISASI (entitas berbeda dari cooperation)
+// ============================================================
+
+enum ActivityStatus {
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+model CooperationActivity {
+  id            String      @id @default(uuid())
+  cooperationId String      @map("cooperation_id")
+  cooperation   Cooperation @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+
+  activityType String @map("activity_type") // Magang, KP, MBKM, Penelitian, Pengmas, Pelatihan, dst
+  activityName String @map("activity_name")
+
+  organizationalUnitId String             @map("organizational_unit_id")
+  organizationalUnit   OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id])
+
+  startDate             DateTime?      @map("start_date")
+  endDate               DateTime?      @map("end_date")
+  implementationPeriod  String?        @map("implementation_period")
+  status                ActivityStatus @default(ONGOING)
+  description           String?
+  notes                 String?
+
+  participants ActivityParticipant[]
+  documents    ActivityDocument[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cooperation_activities")
+}
+
+enum IdentityType {
+  NIM
+  NIP
+  NIPH
+}
+
+model ActivityParticipant {
+  id         String              @id @default(uuid())
+  activityId String              @map("activity_id")
+  activity   CooperationActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  name           String
+  identityNumber String       @map("identity_number")
+  identityType   IdentityType @map("identity_type")
+
+  organizationalUnitId String             @map("organizational_unit_id")
+  organizationalUnit   OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id])
+
+  participantType String? @map("participant_type")
+  notes           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("activity_participants")
+}
+
+model ActivityDocument {
+  id         String              @id @default(uuid())
+  activityId String              @map("activity_id")
+  activity   CooperationActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  title          String
+  documentSource DocumentSource @default(LINK) @map("document_source")
+  filePath       String? @map("file_path")
+  fileUrl      String? @map("file_url")
+  mimeType     String? @map("mime_type")
+  fileSize     Int?    @map("file_size")
+  documentType String? @map("document_type")
+
+  uploadedById String @map("uploaded_by")
+  uploadedBy   User   @relation("ActivityDocUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("activity_documents")
+}
+
+// ============================================================
+// 5. RBAC + SCOPE ORGANISASI
+// ============================================================
+
+model User {
+  id    String @id @default(uuid())
+  name  String
+  email String @unique
+  passwordHash String @map("password_hash")
+  isActive Boolean @default(true) @map("is_active")
+
+  roles  UserRole[]
+  scopes UserOrganizationalUnit[]
+
+  cooperationsCreated Cooperation[]          @relation("CooperationCreatedBy")
+  documentsUploaded   CooperationDocument[]  @relation("DocumentUploadedBy")
+  activityDocsUploaded ActivityDocument[]    @relation("ActivityDocUploadedBy")
+  approvalsMade       CooperationApproval[]  @relation("ApprovalActor")
+  auditLogs           AuditLog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  PENGELOLA_INSTITUT
+  PENGELOLA_FAKULTAS
+  PENGELOLA_JURUSAN
+  PENGELOLA_PRODI
+}
+
+model Role {
+  id   String   @id @default(uuid())
+  name RoleName @unique
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id   String @id @default(uuid())
+  name String @unique // contoh: 'cooperation.create', 'cooperation.approve', 'partner.manage'
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId String @map("role_id")
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Scope akses user terhadap unit organisasi tertentu
+model UserOrganizationalUnit {
+  userId               String             @map("user_id")
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationalUnitId String             @map("organizational_unit_id")
+  organizationalUnit   OrganizationalUnit @relation(fields: [organizationalUnitId], references: [id], onDelete: Cascade)
+
+  @@id([userId, organizationalUnitId])
+  @@map("user_organizational_units")
+}
+
+// ============================================================
+// 6. AUDIT TRAIL
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  timestamp  DateTime @default(now())
+
+  @@map("audit_logs")
+}

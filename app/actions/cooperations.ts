@@ -1,0 +1,75 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
+
+const transition: Record<string, string> = { DRAFT: 'SUBMITTED_JURUSAN', SUBMITTED_JURUSAN: 'SUBMITTED_FAKULTAS', SUBMITTED_FAKULTAS: 'SUBMITTED_INSTITUT', SUBMITTED_INSTITUT: 'APPROVED' }
+
+export async function getCooperationRegions() {
+  await requireScope()
+  return prisma.cooperationRegion.findMany({ orderBy: { name: 'asc' } })
+}
+
+export async function getCooperationById(id: string) {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const row = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, region: true, studyPrograms: { include: { organizationalUnit: true } }, tridharmaCategories: { include: { tridharmaCategory: true } }, documents: true, activities: true, approvals: true } })
+  if (!row) throw new Error('NOT_FOUND')
+  return row
+}
+
+export async function getPendingApprovals() {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const role = String(scope.role)
+  const statuses = role === 'PENGELOLA_JURUSAN' ? ['SUBMITTED_JURUSAN'] : role === 'PENGELOLA_FAKULTAS' ? ['SUBMITTED_FAKULTAS'] : role === 'PENGELOLA_INSTITUT' ? ['SUBMITTED_INSTITUT'] : ['SUBMITTED_JURUSAN', 'SUBMITTED_FAKULTAS', 'SUBMITTED_INSTITUT']
+  return prisma.cooperation.findMany({ where: { status: { in: statuses as never[] }, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, createdBy: true }, orderBy: { updatedAt: 'asc' } })
+}
+
+export async function getCooperations() {
+  const scope = await requireScope()
+  const ids = await scopedOrganizationalUnitIds(scope)
+  return prisma.cooperation.findMany({ where: ids ? { organizationalUnitId: { in: ids } } : undefined, include: { partner: true, region: true, studyPrograms: true, tridharmaCategories: true, approvals: true }, orderBy: { updatedAt: 'desc' } })
+}
+
+export async function createCooperation(input: { partnerId: string; name: string; organizationalUnitId: string; cpDiPks?: string; benefit?: string; notes?: string; startDate?: Date; endDate?: Date; regionId?: string }) {
+  const scope = await requireScope()
+  const ids = await scopedOrganizationalUnitIds(scope)
+  if (ids && !ids.includes(input.organizationalUnitId)) throw new Error('FORBIDDEN_SCOPE')
+  const row = await prisma.cooperation.create({ data: { ...input, createdById: scope.userId } })
+  revalidatePath('/')
+  return row
+}
+
+export async function updateCooperation(id: string, input: Partial<Parameters<typeof createCooperation>[0]>) {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
+  if (!existing) throw new Error('NOT_FOUND')
+  if (existing.status !== 'DRAFT' && !['SUPER_ADMIN'].includes(scope.role as string)) throw new Error('LOCKED_STATUS')
+  return prisma.cooperation.update({ where: { id }, data: input })
+}
+
+export async function submitForApproval(id: string) {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
+  if (!existing) throw new Error('NOT_FOUND')
+  if (existing.createdById !== scope.userId && (scope.role as string) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
+  const status = transition[existing.status]; if (!status) throw new Error('INVALID_TRANSITION')
+  const row = await prisma.cooperation.update({ where: { id }, data: { status: status as never } }); revalidatePath('/'); return row
+}
+
+export async function approveCooperation(id: string, note?: string) {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
+  if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
+  const next = transition[existing.status] ?? 'APPROVED'
+  const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: next as never } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'approved', note } })])
+  revalidatePath('/'); return row[0]
+}
+
+export async function rejectCooperation(id: string, note: string) {
+  const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
+  const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
+  if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
+  const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: 'REJECTED' } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'rejected', note } })])
+  revalidatePath('/'); return row[0]
+}
