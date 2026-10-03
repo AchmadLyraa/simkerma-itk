@@ -16,7 +16,7 @@ export async function getActivityParticipants(activityId: string) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const activity = await prisma.cooperationActivity.findFirst({ where: { id: activityId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
   if (!activity) throw new Error('NOT_FOUND')
-  return prisma.activityParticipant.findMany({ where: { activityId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, orderBy: { createdAt: 'desc' } })
+  return prisma.activityParticipant.findMany({ where: { activityId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { organizationalUnit: { select: { name: true } } }, orderBy: { createdAt: 'desc' } })
 }
 
 export async function getActivities() {
