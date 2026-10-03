@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
+import { writeAuditLog } from '@/lib/audit'
 
 type DocumentSource = 'LINK' | 'UPLOAD'
 
@@ -24,6 +25,7 @@ export async function createCooperationDocument(input: { cooperationId: string; 
   const cooperation = await prisma.cooperation.findFirst({ where: { id: input.cooperationId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { organizationalUnitId: true } })
   if (!cooperation) throw new Error('NOT_FOUND')
   const document = await prisma.cooperationDocument.create({ data: { cooperationId: input.cooperationId, documentType: input.documentType, documentNumber: input.documentNumber, title: input.title.trim(), documentSource, filePath: input.filePath, fileUrl: input.fileUrl, mimeType: input.mimeType, fileSize: input.fileSize, checksum: input.checksum, issueDate: input.issueDate, startDate: input.startDate, endDate: input.endDate, uploadedById: scope.userId } })
+  await writeAuditLog({ userId: scope.userId, action: 'document.create', entityType: 'CooperationDocument', entityId: document.id, newValue: document })
   revalidatePath('/')
   return document
 }
@@ -40,6 +42,7 @@ export async function deleteCooperationDocument(id: string) {
   const document = await prisma.cooperationDocument.findFirst({ where: { id, cooperation: ids ? { organizationalUnitId: { in: ids } } : undefined } })
   if (!document) throw new Error('NOT_FOUND')
   const deleted = await prisma.cooperationDocument.delete({ where: { id } })
+  await writeAuditLog({ userId: scope.userId, action: 'document.delete', entityType: 'CooperationDocument', entityId: id, oldValue: document })
   revalidatePath('/')
   return deleted
 }
@@ -51,5 +54,7 @@ export async function createActivityDocument(input: { activityId: string; title:
   const ids = await scopedOrganizationalUnitIds(scope)
   const activity = await prisma.cooperationActivity.findFirst({ where: { id: input.activityId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
   if (!activity) throw new Error('NOT_FOUND')
-  return prisma.activityDocument.create({ data: { activityId: input.activityId, title: input.title.trim(), documentSource, filePath: input.filePath, fileUrl: input.fileUrl, mimeType: input.mimeType, fileSize: input.fileSize, documentType: input.documentType, uploadedById: scope.userId } })
+  const row = await prisma.activityDocument.create({ data: { activityId: input.activityId, title: input.title.trim(), documentSource, filePath: input.filePath, fileUrl: input.fileUrl, mimeType: input.mimeType, fileSize: input.fileSize, documentType: input.documentType, uploadedById: scope.userId } })
+  await writeAuditLog({ userId: scope.userId, action: 'activity_document.create', entityType: 'ActivityDocument', entityId: row.id, newValue: row })
+  return row
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireScope } from '@/lib/rbac'
+import { writeAuditLog } from '@/lib/audit'
 
 async function requireAdmin() {
   const scope = await requireScope()
@@ -22,15 +23,16 @@ export async function getOrganizationalUnits() {
 }
 
 export async function createOrganizationalUnit(input: { name: string; type: 'INSTITUTION' | 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'; parentId?: string }) {
-  await requireAdmin()
+  const scope = await requireAdmin()
   if (!input.name.trim()) throw new Error('Nama unit wajib diisi')
   const row = await prisma.organizationalUnit.create({ data: { name: input.name.trim(), type: input.type, parentId: input.parentId || null } })
+  await writeAuditLog({ userId: scope.userId, action: 'org_unit.create', entityType: 'OrganizationalUnit', entityId: row.id, newValue: row })
   revalidatePath('/organizational-units')
   return row
 }
 
 export async function updateOrganizationalUnit(id: string, input: { name?: string; type?: 'INSTITUTION' | 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'; parentId?: string | null }) {
-  await requireAdmin()
+  const scope = await requireAdmin()
   const existing = await prisma.organizationalUnit.findUnique({ where: { id } })
   if (!existing) throw new Error('NOT_FOUND')
   const newParentId = input.parentId === undefined ? undefined : input.parentId || null
@@ -48,15 +50,17 @@ export async function updateOrganizationalUnit(id: string, input: { name?: strin
     where: { id },
     data: { name: input.name?.trim() || undefined, type: input.type, parentId: newParentId },
   })
+  await writeAuditLog({ userId: scope.userId, action: 'org_unit.update', entityType: 'OrganizationalUnit', entityId: id, oldValue: { name: existing.name, type: existing.type, parentId: existing.parentId }, newValue: row })
   revalidatePath('/organizational-units')
   return row
 }
 
 export async function deleteOrganizationalUnit(id: string) {
-  await requireAdmin()
+  const scope = await requireAdmin()
   const existing = await prisma.organizationalUnit.findUnique({ where: { id }, include: { children: true, userScopes: true } })
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.children.length || existing.userScopes.length) throw new Error('UNIT_IN_USE')
   await prisma.organizationalUnit.delete({ where: { id } })
+  await writeAuditLog({ userId: scope.userId, action: 'org_unit.delete', entityType: 'OrganizationalUnit', entityId: id, oldValue: { name: existing.name, type: existing.type, parentId: existing.parentId } })
   revalidatePath('/organizational-units')
 }
