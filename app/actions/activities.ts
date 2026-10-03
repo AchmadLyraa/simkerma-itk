@@ -25,19 +25,58 @@ export async function getActivities() {
 export async function createActivity(input: { cooperationId: string; activityType: string; activityName: string; organizationalUnitId: string; startDate?: Date; endDate?: Date; implementationPeriod?: string; description?: string; notes?: string }) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   if (ids && !ids.includes(input.organizationalUnitId)) throw new Error('FORBIDDEN_SCOPE')
-  const row = await prisma.cooperationActivity.create({ data: input }); revalidatePath('/'); return row
+  const cooperation = await prisma.cooperation.findFirst({ where: { id: input.cooperationId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
+  if (!cooperation) throw new Error('NOT_FOUND')
+  if (!input.activityName?.trim() || !input.activityType?.trim()) throw new Error('Jenis dan nama kegiatan wajib diisi')
+  const row = await prisma.cooperationActivity.create({
+    data: {
+      cooperationId: input.cooperationId,
+      organizationalUnitId: input.organizationalUnitId,
+      activityType: input.activityType.trim(),
+      activityName: input.activityName.trim(),
+      startDate: input.startDate ? new Date(input.startDate) : undefined,
+      endDate: input.endDate ? new Date(input.endDate) : undefined,
+      implementationPeriod: input.implementationPeriod || undefined,
+      description: input.description || undefined,
+      notes: input.notes || undefined,
+    },
+  })
+  revalidatePath('/'); return row
 }
 export async function updateActivity(id: string, input: Partial<Parameters<typeof createActivity>[0]> & { status?: 'ONGOING' | 'COMPLETED' | 'CANCELLED' }) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const existing = await prisma.cooperationActivity.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
-  return prisma.cooperationActivity.update({ where: { id }, data: input })
+  return prisma.cooperationActivity.update({
+    where: { id },
+    data: {
+      activityType: input.activityType?.trim() || undefined,
+      activityName: input.activityName?.trim() || undefined,
+      startDate: input.startDate ? new Date(input.startDate) : undefined,
+      endDate: input.endDate ? new Date(input.endDate) : undefined,
+      implementationPeriod: input.implementationPeriod,
+      description: input.description,
+      notes: input.notes,
+      status: input.status,
+    },
+  })
 }
 export async function addParticipant(input: { activityId: string; name: string; identityNumber: string; identityType: 'NIM' | 'NIP' | 'NIPH'; organizationalUnitId: string; participantType?: string; notes?: string }) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const activity = await prisma.cooperationActivity.findFirst({ where: { id: input.activityId, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!activity || (ids && !ids.includes(input.organizationalUnitId))) throw new Error('FORBIDDEN_SCOPE')
-  return prisma.activityParticipant.create({ data: input })
+  if (!input.name?.trim() || !input.identityNumber?.trim()) throw new Error('Nama dan nomor identitas wajib diisi')
+  return prisma.activityParticipant.create({
+    data: {
+      activityId: input.activityId,
+      organizationalUnitId: input.organizationalUnitId,
+      name: input.name.trim(),
+      identityNumber: input.identityNumber.trim(),
+      identityType: input.identityType,
+      participantType: input.participantType,
+      notes: input.notes,
+    },
+  })
 }
 export async function removeParticipant(id: string) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)

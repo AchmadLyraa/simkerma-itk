@@ -33,7 +33,21 @@ export async function updateOrganizationalUnit(id: string, input: { name?: strin
   await requireAdmin()
   const existing = await prisma.organizationalUnit.findUnique({ where: { id } })
   if (!existing) throw new Error('NOT_FOUND')
-  const row = await prisma.organizationalUnit.update({ where: { id }, data: { ...input, name: input.name?.trim() } })
+  const newParentId = input.parentId === undefined ? undefined : input.parentId || null
+  if (newParentId) {
+    if (newParentId === id) throw new Error('Unit tidak boleh menjadi parent dirinya sendiri')
+    const all = await prisma.organizationalUnit.findMany({ select: { id: true, parentId: true } })
+    const parentOf = new Map(all.map((u) => [u.id, u.parentId]))
+    let cursor: string | null | undefined = newParentId
+    while (cursor) {
+      if (cursor === id) throw new Error('Parent tidak valid: akan membuat siklus hierarki')
+      cursor = parentOf.get(cursor)
+    }
+  }
+  const row = await prisma.organizationalUnit.update({
+    where: { id },
+    data: { name: input.name?.trim() || undefined, type: input.type, parentId: newParentId },
+  })
   revalidatePath('/organizational-units')
   return row
 }

@@ -35,7 +35,24 @@ export async function createCooperation(input: { partnerId: string; name: string
   const scope = await requireScope()
   const ids = await scopedOrganizationalUnitIds(scope)
   if (ids && !ids.includes(input.organizationalUnitId)) throw new Error('FORBIDDEN_SCOPE')
-  const row = await prisma.cooperation.create({ data: { ...input, createdById: scope.userId } })
+  const partner = await prisma.partner.findFirst({ where: { id: input.partnerId, isActive: true, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
+  if (!partner) throw new Error('NOT_FOUND')
+  if (!input.name?.trim()) throw new Error('Nama kerja sama wajib diisi')
+  const row = await prisma.cooperation.create({
+    data: {
+      partnerId: input.partnerId,
+      organizationalUnitId: input.organizationalUnitId,
+      name: input.name.trim(),
+      cpDiPks: input.cpDiPks || undefined,
+      benefit: input.benefit || undefined,
+      notes: input.notes || undefined,
+      regionId: input.regionId || undefined,
+      startDate: input.startDate ? new Date(input.startDate) : undefined,
+      endDate: input.endDate ? new Date(input.endDate) : undefined,
+      status: 'DRAFT',
+      createdById: scope.userId,
+    },
+  })
   revalidatePath('/')
   return row
 }
@@ -45,7 +62,18 @@ export async function updateCooperation(id: string, input: Partial<Parameters<ty
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.status !== 'DRAFT' && !['SUPER_ADMIN'].includes(scope.role as string)) throw new Error('LOCKED_STATUS')
-  return prisma.cooperation.update({ where: { id }, data: input })
+  return prisma.cooperation.update({
+    where: { id },
+    data: {
+      name: input.name?.trim() || undefined,
+      cpDiPks: input.cpDiPks,
+      benefit: input.benefit,
+      notes: input.notes,
+      regionId: input.regionId || undefined,
+      startDate: input.startDate ? new Date(input.startDate) : undefined,
+      endDate: input.endDate ? new Date(input.endDate) : undefined,
+    },
+  })
 }
 
 export async function submitForApproval(id: string) {

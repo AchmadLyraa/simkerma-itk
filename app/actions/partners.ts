@@ -27,7 +27,7 @@ export async function addPartner(input: { name: string; categoryId?: string; cat
   if (!categoryId) throw new Error('Kategori mitra wajib diisi')
   const partner = await prisma.partner.create({ data: {
     name: input.name.trim(), categoryId, organizationalUnitId: scope.organizationalUnitId, address: input.address?.trim(), website: input.website?.trim(),
-    contacts: input.contacts?.length ? { create: input.contacts.map((contact) => ({ ...contact, name: contact.name.trim() })) } : undefined,
+    contacts: input.contacts?.length ? { create: input.contacts.map((contact) => ({ name: contact.name.trim(), position: contact.position, phone: contact.phone, email: contact.email, isPrimary: contact.isPrimary })) } : undefined,
   }, include: { category: true, contacts: true } })
   revalidatePath('/')
   return partner
@@ -38,7 +38,16 @@ export async function updatePartner(id: string, input: { name?: string; category
   const ids = await scopedOrganizationalUnitIds(scope)
   const existing = await prisma.partner.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
-  const partner = await prisma.partner.update({ where: { id }, data: input })
+  const partner = await prisma.partner.update({
+    where: { id },
+    data: {
+      name: input.name?.trim() || undefined,
+      categoryId: input.categoryId || undefined,
+      address: input.address,
+      website: input.website,
+      isActive: input.isActive,
+    },
+  })
   revalidatePath('/')
   return partner
 }
