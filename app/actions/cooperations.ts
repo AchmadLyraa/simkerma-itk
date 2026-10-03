@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
+import { writeAuditLog } from '@/lib/audit'
 
 const transition: Record<string, string> = { DRAFT: 'SUBMITTED_JURUSAN', SUBMITTED_JURUSAN: 'SUBMITTED_FAKULTAS', SUBMITTED_FAKULTAS: 'SUBMITTED_INSTITUT', SUBMITTED_INSTITUT: 'APPROVED' }
 
@@ -53,6 +54,7 @@ export async function createCooperation(input: { partnerId: string; name: string
       createdById: scope.userId,
     },
   })
+  await writeAuditLog({ userId: scope.userId, action: 'cooperation.create', entityType: 'Cooperation', entityId: row.id, newValue: row })
   revalidatePath('/')
   return row
 }
@@ -62,7 +64,7 @@ export async function updateCooperation(id: string, input: Partial<Parameters<ty
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.status !== 'DRAFT' && !['SUPER_ADMIN'].includes(scope.role as string)) throw new Error('LOCKED_STATUS')
-  return prisma.cooperation.update({
+  const row = await prisma.cooperation.update({
     where: { id },
     data: {
       name: input.name?.trim() || undefined,
@@ -74,6 +76,8 @@ export async function updateCooperation(id: string, input: Partial<Parameters<ty
       endDate: input.endDate ? new Date(input.endDate) : undefined,
     },
   })
+  await writeAuditLog({ userId: scope.userId, action: 'cooperation.update', entityType: 'Cooperation', entityId: id, oldValue: existing, newValue: row })
+  return row
 }
 
 export async function submitForApproval(id: string) {
@@ -82,7 +86,9 @@ export async function submitForApproval(id: string) {
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.createdById !== scope.userId && (scope.role as string) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
   const status = transition[existing.status]; if (!status) throw new Error('INVALID_TRANSITION')
-  const row = await prisma.cooperation.update({ where: { id }, data: { status: status as never } }); revalidatePath('/'); return row
+  const row = await prisma.cooperation.update({ where: { id }, data: { status: status as never } })
+  await writeAuditLog({ userId: scope.userId, action: 'cooperation.submit', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: row.status } })
+  revalidatePath('/'); return row
 }
 
 export async function approveCooperation(id: string, note?: string) {
@@ -91,6 +97,7 @@ export async function approveCooperation(id: string, note?: string) {
   if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
   const next = transition[existing.status] ?? 'APPROVED'
   const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: next as never } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'approved', note } })])
+  await writeAuditLog({ userId: scope.userId, action: 'cooperation.approve', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: row[0].status, note } })
   revalidatePath('/'); return row[0]
 }
 
@@ -99,5 +106,6 @@ export async function rejectCooperation(id: string, note: string) {
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
   const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: 'REJECTED' } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'rejected', note } })])
+  await writeAuditLog({ userId: scope.userId, action: 'cooperation.reject', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: 'REJECTED', note } })
   revalidatePath('/'); return row[0]
 }
