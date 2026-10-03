@@ -41,6 +41,10 @@ const actionLabel: Record<string, string> = {
   'org_unit.delete': 'Hapus unit organisasi',
   'user.assign_scope': 'Beri scope pengguna',
   'user.revoke_scope': 'Cabut scope pengguna',
+  'user.create': 'Tambah pengguna',
+  'user.activate': 'Aktifkan pengguna',
+  'user.deactivate': 'Nonaktifkan pengguna',
+  'user.reset_password': 'Reset password pengguna',
 }
 
 export default async function AuditLogsPage() {
