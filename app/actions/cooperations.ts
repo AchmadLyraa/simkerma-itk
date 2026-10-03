@@ -14,7 +14,7 @@ export async function getCooperationRegions() {
 
 export async function getCooperationById(id: string) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
-  const row = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, region: true, studyPrograms: { include: { organizationalUnit: true } }, tridharmaCategories: { include: { tridharmaCategory: true } }, documents: true, activities: true, approvals: true } })
+  const row = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, region: true, studyPrograms: { include: { organizationalUnit: true } }, tridharmaCategories: { include: { tridharmaCategory: true } }, documents: true, activities: true, approvals: { include: { approvedBy: { select: { name: true } } }, orderBy: { createdAt: 'desc' } } } })
   if (!row) throw new Error('NOT_FOUND')
   return row
 }
@@ -85,7 +85,8 @@ export async function submitForApproval(id: string) {
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.createdById !== scope.userId && (scope.role as string) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
-  const status = transition[existing.status]; if (!status) throw new Error('INVALID_TRANSITION')
+  if (existing.status !== 'DRAFT') throw new Error('INVALID_TRANSITION')
+  const status = transition[existing.status]
   const row = await prisma.cooperation.update({ where: { id }, data: { status: status as never } })
   await writeAuditLog({ userId: scope.userId, action: 'cooperation.submit', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: row.status } })
   revalidatePath('/'); return row
