@@ -12,6 +12,11 @@ export async function getCooperationRegions() {
   return prisma.cooperationRegion.findMany({ orderBy: { name: 'asc' } })
 }
 
+export async function getTridharmaCategories() {
+  await requireScope()
+  return prisma.tridharmaCategory.findMany({ where: { active: true }, orderBy: { name: 'asc' } })
+}
+
 export async function getCooperationById(id: string) {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const row = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, region: true, studyPrograms: { include: { organizationalUnit: true } }, tridharmaCategories: { include: { tridharmaCategory: true } }, documents: true, activities: true, approvals: { include: { approvedBy: { select: { name: true } } }, orderBy: { createdAt: 'desc' } } } })
@@ -32,13 +37,24 @@ export async function getCooperations() {
   return prisma.cooperation.findMany({ where: ids ? { organizationalUnitId: { in: ids } } : undefined, include: { partner: true, region: true, studyPrograms: true, tridharmaCategories: true, approvals: true }, orderBy: { updatedAt: 'desc' } })
 }
 
-export async function createCooperation(input: { partnerId: string; name: string; organizationalUnitId: string; cpDiPks?: string; benefit?: string; notes?: string; startDate?: Date; endDate?: Date; regionId?: string }) {
+export async function createCooperation(input: { partnerId: string; name: string; organizationalUnitId: string; cpDiPks?: string; benefit?: string; notes?: string; startDate?: Date; endDate?: Date; regionId?: string; studyProgramIds?: string[]; tridharmaCategoryIds?: string[] }) {
   const scope = await requireScope()
   const ids = await scopedOrganizationalUnitIds(scope)
   if (ids && !ids.includes(input.organizationalUnitId)) throw new Error('FORBIDDEN_SCOPE')
   const partner = await prisma.partner.findFirst({ where: { id: input.partnerId, isActive: true, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
   if (!partner) throw new Error('NOT_FOUND')
   if (!input.name?.trim()) throw new Error('Nama kerja sama wajib diisi')
+  const programIds = [...new Set(input.studyProgramIds ?? [])]
+  if (programIds.length) {
+    const allowed = ids ? programIds.filter((p) => ids.includes(p)) : programIds
+    const found = await prisma.organizationalUnit.count({ where: { id: { in: allowed }, type: 'STUDY_PROGRAM' } })
+    if (found !== programIds.length) throw new Error('FORBIDDEN_SCOPE')
+  }
+  const tridharmaIds = [...new Set(input.tridharmaCategoryIds ?? [])]
+  if (tridharmaIds.length) {
+    const found = await prisma.tridharmaCategory.count({ where: { id: { in: tridharmaIds }, active: true } })
+    if (found !== tridharmaIds.length) throw new Error('NOT_FOUND')
+  }
   const row = await prisma.cooperation.create({
     data: {
       partnerId: input.partnerId,
@@ -51,6 +67,8 @@ export async function createCooperation(input: { partnerId: string; name: string
       startDate: input.startDate ? new Date(input.startDate) : undefined,
       endDate: input.endDate ? new Date(input.endDate) : undefined,
       status: 'DRAFT',
+      studyPrograms: programIds.length ? { create: programIds.map((organizationalUnitId) => ({ organizationalUnitId })) } : undefined,
+      tridharmaCategories: tridharmaIds.length ? { create: tridharmaIds.map((tridharmaCategoryId) => ({ tridharmaCategoryId })) } : undefined,
       createdById: scope.userId,
     },
   })
