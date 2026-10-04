@@ -82,6 +82,20 @@ export async function updateCooperation(id: string, input: Partial<Parameters<ty
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.status !== 'DRAFT' && !['SUPER_ADMIN'].includes(scope.role as string)) throw new Error('LOCKED_STATUS')
+  if (input.name !== undefined && !input.name.trim()) throw new Error('Nama kerja sama wajib diisi')
+
+  const programIds = input.studyProgramIds === undefined ? undefined : [...new Set(input.studyProgramIds)]
+  if (programIds?.length) {
+    const allowed = ids ? programIds.filter((p) => ids.includes(p)) : programIds
+    const found = await prisma.organizationalUnit.count({ where: { id: { in: allowed }, type: 'STUDY_PROGRAM' } })
+    if (found !== programIds.length) throw new Error('FORBIDDEN_SCOPE')
+  }
+  const tridharmaIds = input.tridharmaCategoryIds === undefined ? undefined : [...new Set(input.tridharmaCategoryIds)]
+  if (tridharmaIds?.length) {
+    const found = await prisma.tridharmaCategory.count({ where: { id: { in: tridharmaIds }, active: true } })
+    if (found !== tridharmaIds.length) throw new Error('NOT_FOUND')
+  }
+
   const row = await prisma.cooperation.update({
     where: { id },
     data: {
@@ -92,9 +106,12 @@ export async function updateCooperation(id: string, input: Partial<Parameters<ty
       regionId: input.regionId || undefined,
       startDate: input.startDate ? new Date(input.startDate) : undefined,
       endDate: input.endDate ? new Date(input.endDate) : undefined,
+      studyPrograms: programIds ? { deleteMany: {}, create: programIds.map((organizationalUnitId) => ({ organizationalUnitId })) } : undefined,
+      tridharmaCategories: tridharmaIds ? { deleteMany: {}, create: tridharmaIds.map((tridharmaCategoryId) => ({ tridharmaCategoryId })) } : undefined,
     },
   })
   await writeAuditLog({ userId: scope.userId, action: 'cooperation.update', entityType: 'Cooperation', entityId: id, oldValue: existing, newValue: row })
+  revalidatePath('/')
   return row
 }
 

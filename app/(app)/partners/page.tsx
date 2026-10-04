@@ -1,7 +1,153 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ActionModal, ModulePage, DataTable, EmptyState } from '@/components/module-page'
+import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { addPartner, getPartnerCategories, getPartners, removePartner, updatePartner } from '@/app/actions/partners'
 import { addPartnerContact, deletePartnerContact, updatePartnerContact } from '@/app/actions/partner-contacts'
 import { errorMessage } from '@/lib/error-message'
-export default function PartnersPage(){const [rows,setRows]=useState<any[]>([]);const [categories,setCategories]=useState<any[]>([]);const [modal,setModal]=useState<any>(null);const [error,setError]=useState<string|null>(null);const load=()=>getPartners().then(r=>{setRows(r);setError(null)}).catch((e)=>{setRows([]);setError(errorMessage(e))});useEffect(()=>{load();getPartnerCategories().then(setCategories).catch(()=>setCategories([]))},[]);const categoryOptions=categories.map(x=>({label:x.name,value:x.id}));return <><ModulePage title="Mitra & kontak" description="Kelola mitra dan kontak dalam scope unit organisasi Anda." error={error} fields={[{name:'name',label:'Nama mitra',required:true},{name:'categoryId',label:'Kategori mitra',options:categoryOptions,required:true},{name:'address',label:'Alamat'},{name:'website',label:'Website'}]} onSubmit={async(data)=>{await addPartner(data as any);load()}}><DataTable columns={['Mitra','Kategori','Unit organisasi','Status','Aksi','Kontak']} rows={rows.map(row=>({'Mitra':row.name,'Kategori':row.category?.name??row.categoryId,'Unit organisasi':row.organizationalUnit?.name??row.organizationalUnitId,'Status':row.isActive?'Aktif':'Nonaktif','Aksi':<div className="flex gap-2"><button className="text-teal-700" onClick={()=>setModal({title:'Edit mitra',fields:[{name:'name',label:'Nama mitra',required:true}],submit:async(d:any)=>{await updatePartner(row.id,d);load()}})}>Edit</button><button className="text-red-600" onClick={()=>setModal({title:'Nonaktifkan mitra',fields:[{name:'confirmation',label:'Ketik NONAKTIF untuk konfirmasi',required:true}],submit:async(d:any)=>{if(d.confirmation==='NONAKTIF')await removePartner(row.id);load()}})}>Hapus</button></div>,'Kontak':<div className="space-y-1">{row.contacts.map((contact:any)=><div key={contact.id} className="flex gap-2"><span>{contact.name}</span><button className="text-teal-700" onClick={()=>setModal({title:'Edit kontak',fields:[{name:'name',label:'Nama kontak',required:true}],submit:async(d:any)=>{await updatePartnerContact(contact.id,d);load()}})}>Edit</button><button className="text-red-600" onClick={()=>setModal({title:'Hapus kontak',fields:[{name:'confirmation',label:'Ketik HAPUS untuk konfirmasi',required:true}],submit:async(d:any)=>{if(d.confirmation==='HAPUS')await deletePartnerContact(contact.id);load()}})}>Hapus</button></div>)}<button className="text-xs text-teal-700" onClick={()=>setModal({title:'Tambah kontak',fields:[{name:'name',label:'Nama kontak',required:true}],submit:async(d:any)=>{await addPartnerContact(row.id,d);load()}})}>+ Kontak</button></div>}))}/>{!rows.length&&<EmptyState text="Belum ada mitra dalam scope Anda."/>}</ModulePage>{modal&&<ActionModal title={modal.title} fields={modal.fields} onSubmit={modal.submit} onClose={()=>setModal(null)}/>}</>}
+
+type ModalState = {
+  title: string
+  fields: FormField[]
+  initialValues?: Record<string, string>
+  submitLabel?: string
+  submit: (data: Record<string, string>) => Promise<void>
+}
+
+const contactFields: FormField[] = [
+  { name: 'name', label: 'Nama kontak', required: true },
+  { name: 'position', label: 'Jabatan' },
+  { name: 'phone', label: 'Telepon' },
+  { name: 'email', label: 'Email', type: 'email' },
+  { name: 'isPrimary', label: 'Kontak utama', options: [{ label: 'Ya', value: 'true' }, { label: 'Tidak', value: 'false' }] },
+]
+
+export default function PartnersPage() {
+  const [rows, setRows] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [modal, setModal] = useState<ModalState | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = () =>
+    getPartners()
+      .then((data) => { setRows(data); setError(null) })
+      .catch((e) => { setRows([]); setError(errorMessage(e)) })
+
+  useEffect(() => {
+    load()
+    getPartnerCategories().then(setCategories).catch(() => setCategories([]))
+  }, [])
+
+  const categoryOptions = categories.map((x) => ({ label: x.name, value: x.id }))
+  const partnerFields: FormField[] = [
+    { name: 'name', label: 'Nama mitra', required: true },
+    { name: 'categoryId', label: 'Kategori mitra', options: categoryOptions, required: true },
+    { name: 'address', label: 'Alamat' },
+    { name: 'website', label: 'Website' },
+  ]
+
+  return (
+    <>
+      <ModulePage
+        title="Mitra & kontak"
+        description="Kelola mitra dan kontak dalam scope unit organisasi Anda."
+        error={error}
+        fields={partnerFields}
+        onSubmit={async (data) => {
+          await addPartner({ name: data.name, categoryId: data.categoryId, address: data.address || undefined, website: data.website || undefined })
+          await load()
+        }}
+      >
+        {rows.length > 0 ? (
+          <DataTable
+            columns={['Mitra', 'Kategori', 'Unit organisasi', 'Status', 'Aksi', 'Kontak']}
+            rows={rows.map((row) => ({
+              Mitra: row.name,
+              Kategori: row.category?.name ?? '-',
+              'Unit organisasi': row.organizationalUnit?.name ?? '-',
+              Status: row.isActive ? 'Aktif' : 'Nonaktif',
+              Aksi: (
+                <div className="flex gap-3">
+                  <button
+                    className="font-semibold text-[#087f72]"
+                    onClick={() => setModal({
+                      title: `Ubah mitra: ${row.name}`,
+                      fields: partnerFields,
+                      initialValues: { name: row.name, categoryId: row.categoryId, address: row.address ?? '', website: row.website ?? '' },
+                      submit: async (d) => {
+                        await updatePartner(row.id, { name: d.name, categoryId: d.categoryId, address: d.address, website: d.website })
+                        await load()
+                      },
+                    })}
+                  >
+                    Ubah
+                  </button>
+                  <button
+                    className="font-semibold text-red-600"
+                    onClick={() => setModal({
+                      title: `Nonaktifkan mitra "${row.name}"?`,
+                      submitLabel: 'Nonaktifkan',
+                      fields: [],
+                      submit: async () => { await removePartner(row.id); await load() },
+                    })}
+                  >
+                    Nonaktifkan
+                  </button>
+                </div>
+              ),
+              Kontak: (
+                <div className="space-y-1">
+                  {row.contacts.map((contact: any) => (
+                    <div key={contact.id} className="flex flex-wrap items-center gap-x-2">
+                      <span>{contact.name}{contact.position ? ` (${contact.position})` : ''}{contact.isPrimary ? ' ★' : ''}</span>
+                      <button
+                        className="text-xs font-semibold text-[#087f72]"
+                        onClick={() => setModal({
+                          title: `Ubah kontak: ${contact.name}`,
+                          fields: contactFields,
+                          initialValues: { name: contact.name, position: contact.position ?? '', phone: contact.phone ?? '', email: contact.email ?? '', isPrimary: String(contact.isPrimary) },
+                          submit: async (d) => {
+                            await updatePartnerContact(contact.id, { name: d.name, position: d.position, phone: d.phone, email: d.email, isPrimary: d.isPrimary === 'true' })
+                            await load()
+                          },
+                        })}
+                      >
+                        Ubah
+                      </button>
+                      <button
+                        className="text-xs font-semibold text-red-600"
+                        onClick={() => setModal({
+                          title: `Hapus kontak "${contact.name}"?`,
+                          submitLabel: 'Hapus',
+                          fields: [],
+                          submit: async () => { await deletePartnerContact(contact.id); await load() },
+                        })}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    className="text-xs font-semibold text-[#087f72]"
+                    onClick={() => setModal({
+                      title: `Tambah kontak untuk ${row.name}`,
+                      fields: contactFields,
+                      submit: async (d) => {
+                        await addPartnerContact(row.id, { name: d.name, position: d.position || undefined, phone: d.phone || undefined, email: d.email || undefined, isPrimary: d.isPrimary === 'true' })
+                        await load()
+                      },
+                    })}
+                  >
+                    + Kontak
+                  </button>
+                </div>
+              ),
+            }))}
+          />
+        ) : (
+          !error && <EmptyState text="Belum ada mitra dalam scope Anda." />
+        )}
+      </ModulePage>
+      {modal && <ActionModal title={modal.title} fields={modal.fields} initialValues={modal.initialValues} submitLabel={modal.submitLabel} onSubmit={modal.submit} onClose={() => setModal(null)} />}
+    </>
+  )
+}

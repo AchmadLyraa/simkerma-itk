@@ -1,6 +1,91 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ActionModal, ModulePage, DataTable, EmptyState } from '@/components/module-page'
-import { errorMessage } from '@/lib/error-message'
+import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { createOrganizationalUnit, deleteOrganizationalUnit, getOrganizationalUnits, updateOrganizationalUnit } from '@/app/actions/organizational-units'
-export default function OrganizationalUnitsPage(){const [rows,setRows]=useState<any[]>([]);const [modal,setModal]=useState<any>(null);const [error,setError]=useState<string|null>(null);const load=()=>getOrganizationalUnits().then(r=>{setRows(r);setError(null)}).catch((e)=>{setRows([]);setError(errorMessage(e))});useEffect(()=>{load()},[]);const types=['INSTITUTION','FACULTY','DEPARTMENT','STUDY_PROGRAM'];const options=rows.map(x=>({label:`${x.name} (${x.type})`,value:x.id}));return <><ModulePage title="Unit organisasi" description="Admin mengelola struktur organisasi." error={error} fields={[{name:'name',label:'Nama unit',required:true},{name:'type',label:'Tipe unit',options:types,required:true},{name:'parentId',label:'Parent unit',options:[{label:'Tanpa parent',value:''},...options]}]} onSubmit={async(data)=>{await createOrganizationalUnit(data as any);load()}}><DataTable columns={['Nama unit','Tipe','Parent','Aksi']} rows={rows.map(row=>({'Nama unit':row.name,'Tipe':row.type,'Parent':row.parent?.name??'-','Aksi':<div className="flex gap-2"><button className="text-teal-700" onClick={()=>setModal({title:'Edit unit organisasi',fields:[{name:'name',label:'Nama unit',required:true}],submit:async(d:any)=>{await updateOrganizationalUnit(row.id,d);load()}})}>Edit</button><button className="text-red-600" onClick={()=>setModal({title:'Hapus unit organisasi',fields:[{name:'confirmation',label:'Ketik HAPUS untuk konfirmasi',required:true}],submit:async(d:any)=>{if(d.confirmation==='HAPUS')await deleteOrganizationalUnit(row.id);load()}})}>Hapus</button></div>}))}/>{!rows.length&&<EmptyState text="Belum ada unit organisasi."/>}</ModulePage>{modal&&<ActionModal title={modal.title} fields={modal.fields} onSubmit={modal.submit} onClose={()=>setModal(null)}/>}</>}
+import { errorMessage } from '@/lib/error-message'
+
+type UnitType = 'INSTITUTION' | 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'
+type ModalState = { title: string; fields: FormField[]; initialValues?: Record<string, string>; submitLabel?: string; submit: (data: Record<string, string>) => Promise<void> }
+
+const types: UnitType[] = ['INSTITUTION', 'FACULTY', 'DEPARTMENT', 'STUDY_PROGRAM']
+
+export default function OrganizationalUnitsPage() {
+  const [rows, setRows] = useState<any[]>([])
+  const [modal, setModal] = useState<ModalState | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = () =>
+    getOrganizationalUnits()
+      .then((data) => { setRows(data); setError(null) })
+      .catch((e) => { setRows([]); setError(errorMessage(e)) })
+
+  useEffect(() => { load() }, [])
+
+  const parentOptions = (excludeId?: string) => [
+    { label: 'Tanpa parent', value: '' },
+    ...rows.filter((x) => x.id !== excludeId).map((x) => ({ label: `${x.name} (${x.type})`, value: x.id })),
+  ]
+  const unitFields = (excludeId?: string): FormField[] => [
+    { name: 'name', label: 'Nama unit', required: true },
+    { name: 'type', label: 'Tipe unit', options: types, required: true },
+    { name: 'parentId', label: 'Parent unit', options: parentOptions(excludeId) },
+  ]
+
+  return (
+    <>
+      <ModulePage
+        title="Unit organisasi"
+        description="Admin mengelola struktur organisasi."
+        error={error}
+        fields={unitFields()}
+        onSubmit={async (data) => {
+          await createOrganizationalUnit({ name: data.name, type: data.type as UnitType, parentId: data.parentId || undefined })
+          await load()
+        }}
+      >
+        {rows.length > 0 ? (
+          <DataTable
+            columns={['Nama unit', 'Tipe', 'Parent', 'Aksi']}
+            rows={rows.map((row) => ({
+              'Nama unit': row.name,
+              Tipe: row.type,
+              Parent: row.parent?.name ?? '-',
+              Aksi: (
+                <div className="flex gap-3">
+                  <button
+                    className="font-semibold text-[#087f72]"
+                    onClick={() => setModal({
+                      title: `Ubah unit: ${row.name}`,
+                      fields: unitFields(row.id),
+                      initialValues: { name: row.name, type: row.type, parentId: row.parentId ?? '' },
+                      submit: async (d) => {
+                        await updateOrganizationalUnit(row.id, { name: d.name, type: d.type as UnitType, parentId: d.parentId || null })
+                        await load()
+                      },
+                    })}
+                  >
+                    Ubah
+                  </button>
+                  <button
+                    className="font-semibold text-red-600"
+                    onClick={() => setModal({
+                      title: `Hapus unit "${row.name}"?`,
+                      submitLabel: 'Hapus',
+                      fields: [],
+                      submit: async () => { await deleteOrganizationalUnit(row.id); await load() },
+                    })}
+                  >
+                    Hapus
+                  </button>
+                </div>
+              ),
+            }))}
+          />
+        ) : (
+          !error && <EmptyState text="Belum ada unit organisasi." />
+        )}
+      </ModulePage>
+      {modal && <ActionModal title={modal.title} fields={modal.fields} initialValues={modal.initialValues} submitLabel={modal.submitLabel} onSubmit={modal.submit} onClose={() => setModal(null)} />}
+    </>
+  )
+}

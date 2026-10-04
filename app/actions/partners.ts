@@ -15,7 +15,7 @@ export async function getPartners() {
   const ids = await scopedOrganizationalUnitIds(scope)
   return prisma.partner.findMany({
     where: { isActive: true, ...(ids ? { organizationalUnitId: { in: ids } } : {}) },
-    include: { category: true, contacts: true, _count: { select: { cooperations: true } } },
+    include: { category: true, contacts: true, organizationalUnit: { select: { name: true } }, _count: { select: { cooperations: true } } },
     orderBy: { updatedAt: 'desc' },
   })
 }

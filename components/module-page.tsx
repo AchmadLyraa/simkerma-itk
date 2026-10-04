@@ -22,13 +22,68 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: Record<s
 
 export function EmptyState({ text }: { text: string }) { return <div className="rounded-xl border border-dashed bg-white p-12 text-center text-sm text-slate-500">{text}</div> }
 
-export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel = 'Simpan' }: { title: string; fields?: FormField[]; onSubmit: (data: Record<string, string>) => Promise<void> | void; onClose: () => void; submitLabel?: string }) {
-  const [data, setData] = useState<Record<string, string>>({})
+export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel = 'Simpan', initialValues }: { title: string; fields?: FormField[]; onSubmit: (data: Record<string, string>) => Promise<void> | void; onClose: () => void; submitLabel?: string; initialValues?: Record<string, string> }) {
+  const [data, setData] = useState<Record<string, string>>(initialValues ?? {})
   const [formError, setFormError] = useState<string | null>(null)
+  const set = (name: string, value: string) => setData((prev) => ({ ...prev, [name]: value }))
   async function submit(event: FormEvent) {
     event.preventDefault()
     setFormError(null)
     try { await onSubmit(data); onClose() } catch (e) { setFormError(errorMessage(e)) }
   }
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form onSubmit={submit} className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">{title}</h2><div className="mt-5 grid gap-4">{fields.map((field) => field.options ? <select key={field.name} required={field.required} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="rounded-lg border p-3 text-sm"><option value="">{field.label}</option>{field.options.map((option) => { const item = typeof option === 'string' ? { label: option, value: option } : option; return <option key={item.value} value={item.value}>{item.label}</option> })}</select> : field.type === 'textarea' ? <textarea key={field.name} required={field.required} placeholder={field.label} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="min-h-24 rounded-lg border p-3 text-sm" /> : <input key={field.name} required={field.required} type={field.type ?? 'text'} placeholder={field.label} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="rounded-lg border p-3 text-sm" />)}</div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Batal</button><button className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">{submitLabel}</button></div></form></div>
+  const labelClass = 'text-xs font-semibold text-slate-500'
+  const inputClass = 'rounded-lg border p-3 text-sm'
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 p-4">
+      <form onSubmit={submit} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <div className="mt-5 grid gap-4">
+          {fields.map((field) => {
+            if (field.options && field.multiple) {
+              const selected = (data[field.name] ?? '').split(',').filter(Boolean)
+              return (
+                <fieldset key={field.name} className="grid gap-2 rounded-lg border p-3">
+                  <legend className={`px-1 ${labelClass}`}>{field.label}</legend>
+                  {field.options.length === 0 && <span className="text-xs text-slate-500">Belum ada pilihan tersedia.</span>}
+                  {field.options.map((option) => {
+                    const item = typeof option === 'string' ? { label: option, value: option } : option
+                    return (
+                      <label key={item.value} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={selected.includes(item.value)} onChange={(e) => set(field.name, (e.target.checked ? [...selected, item.value] : selected.filter((v) => v !== item.value)).join(','))} />
+                        {item.label}
+                      </label>
+                    )
+                  })}
+                </fieldset>
+              )
+            }
+            return (
+              <label key={field.name} className="grid gap-1">
+                <span className={labelClass}>{field.label}{field.required ? ' *' : ''}</span>
+                {field.options ? (
+                  <select disabled={field.disabled} required={field.required} value={data[field.name] ?? ''} onChange={(e) => set(field.name, e.target.value)} className={inputClass}>
+                    <option value="">— Pilih —</option>
+                    {field.options.map((option) => {
+                      const item = typeof option === 'string' ? { label: option, value: option } : option
+                      return <option key={item.value} value={item.value} disabled={item.disabled}>{item.label}</option>
+                    })}
+                  </select>
+                ) : field.type === 'textarea' ? (
+                  <textarea disabled={field.disabled} required={field.required} value={data[field.name] ?? ''} onChange={(e) => set(field.name, e.target.value)} className={`min-h-24 ${inputClass}`} />
+                ) : (
+                  <input disabled={field.disabled} required={field.required} type={field.type ?? 'text'} value={data[field.name] ?? ''} onChange={(e) => set(field.name, e.target.value)} className={inputClass} />
+                )}
+                {field.helpText && <span className="text-xs text-slate-500">{field.helpText}</span>}
+              </label>
+            )
+          })}
+        </div>
+        {formError && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Batal</button>
+          <button className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">{submitLabel}</button>
+        </div>
+      </form>
+    </div>
+  )
 }
