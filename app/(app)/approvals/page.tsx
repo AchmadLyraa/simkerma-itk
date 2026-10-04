@@ -1,9 +1,64 @@
 'use client'
-import { useEffect,useState } from 'react'
-import { ModulePage,DataTable,EmptyState,ActionModal } from '@/components/module-page'
-import { approveCooperation,getPendingApprovals,rejectCooperation } from '@/app/actions/cooperations'
+import { useEffect, useState } from 'react'
+import { ActionModal, DataTable, EmptyState, ModulePage } from '@/components/module-page'
+import { approveCooperation, getPendingApprovals, rejectCooperation } from '@/app/actions/cooperations'
 import { errorMessage } from '@/lib/error-message'
-import { unwrap } from '@/lib/action-result'
 
-const level=(status:string)=>({SUBMITTED_JURUSAN:'Jurusan',SUBMITTED_FAKULTAS:'Fakultas',SUBMITTED_INSTITUT:'Institut'}[status]??status)
-export default function ApprovalsPage(){const [rows,setRows]=useState<any[]>([]);const [rejecting,setRejecting]=useState<any>(null);const [error,setError]=useState<string|null>(null);useEffect(()=>{getPendingApprovals().then(setRows).catch((e)=>{setRows([]);setError(errorMessage(e))})},[]);async function approve(id:string){try{setError(null);unwrap(await approveCooperation(id));setRows(rows.filter(row=>row.id!==id))}catch(e){setError(errorMessage(e))}}return <><ModulePage title="Approval kerja sama" description="Review kerja sama sesuai level organisasi Anda." error={error}><DataTable columns={['Kerja sama','Pengaju','Menunggu level','Aksi']} rows={rows.map(row=>({'Kerja sama':row.name,'Pengaju':row.createdBy?.name??row.createdById,'Menunggu level':level(row.status),'Aksi':<span className="flex gap-3"><button onClick={()=>approve(row.id)} className="font-semibold text-[#087f72]">Setujui</button><button onClick={()=>setRejecting(row)} className="font-semibold text-red-600">Tolak</button></span>}))}/>{!rows.length&&<EmptyState text="Tidak ada kerja sama yang menunggu tindakan Anda."/>}</ModulePage>{rejecting&&<ActionModal title={`Tolak: ${rejecting.name}`} fields={[{name:'note',label:'Alasan penolakan',type:'textarea',required:true}]} onSubmit={async(data)=>{unwrap(await rejectCooperation(rejecting.id,data.note));setRows(rows.filter(row=>row.id!==rejecting.id))}} onClose={()=>setRejecting(null)}/>}</>}
+const levelLabel: Record<string, string> = { SUBMITTED_JURUSAN: 'Jurusan', SUBMITTED_FAKULTAS: 'Fakultas', SUBMITTED_INSTITUT: 'Institut' }
+
+export default function ApprovalsPage() {
+  const [rows, setRows] = useState<any[]>([])
+  const [rejecting, setRejecting] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = () =>
+    getPendingApprovals()
+      .then((data) => { setRows(data); setError(null) })
+      .catch((e) => { setRows([]); setError(errorMessage(e)) })
+
+  useEffect(() => { load() }, [])
+
+  async function approve(id: string) {
+    const err = errorMessage(await approveCooperation(id))
+    if (err) setError(err)
+    else await load()
+  }
+
+  return (
+    <>
+      <ModulePage title="Approval kerja sama" description="Review kerja sama sesuai level organisasi Anda." error={error}>
+        {rows.length > 0 ? (
+          <DataTable
+            columns={['Kerja sama', 'Pengaju', 'Menunggu level', 'Aksi']}
+            rows={rows.map((row) => ({
+              'Kerja sama': row.name,
+              Pengaju: row.createdBy?.name ?? '-',
+              'Menunggu level': levelLabel[row.status] ?? row.status,
+              Aksi: (
+                <span className="flex gap-3">
+                  <button onClick={() => approve(row.id)} className="font-semibold text-[#087f72]">Setujui</button>
+                  <button onClick={() => setRejecting(row)} className="font-semibold text-red-600">Tolak</button>
+                </span>
+              ),
+            }))}
+          />
+        ) : (
+          !error && <EmptyState text="Tidak ada kerja sama yang menunggu tindakan Anda." />
+        )}
+      </ModulePage>
+      {rejecting && (
+        <ActionModal
+          title={`Tolak: ${rejecting.name}`}
+          submitLabel="Tolak"
+          fields={[{ name: 'note', label: 'Alasan penolakan', type: 'textarea', required: true }]}
+          onSubmit={async (data) => {
+            const r = await rejectCooperation(rejecting.id, data.note)
+            await load()
+            return r
+          }}
+          onClose={() => setRejecting(null)}
+        />
+      )}
+    </>
+  )
+}

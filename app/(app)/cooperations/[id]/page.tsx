@@ -5,7 +5,6 @@ import { getCooperationById, getCooperationRegions, getTridharmaCategories, subm
 import { getScopedOrganizationalUnits } from '@/app/actions/organizational-units'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { errorMessage } from '@/lib/error-message'
-import { unwrap } from '@/lib/action-result'
 
 
 const statusLabel: Record<string, string> = {
@@ -113,7 +112,7 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
         <ActionModal
           title="Ajukan kerja sama ini untuk approval?"
           submitLabel="Ajukan"
-          onSubmit={async () => { unwrap(await submitForApproval(row.id)); await load(row.id) }}
+          onSubmit={async () => { const r = await submitForApproval(row.id); await load(row.id); return r }}
           onClose={() => setModal(null)}
         />
       )}
@@ -133,7 +132,7 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
             tridharmaCategoryIds: row.tridharmaCategories.map((t: any) => t.tridharmaCategoryId).join(','),
           }}
           onSubmit={async (d) => {
-            unwrap(await updateCooperation(row.id, {
+            const r = await updateCooperation(row.id, {
               name: d.name,
               regionId: d.regionId || undefined,
               startDate: d.startDate ? new Date(d.startDate) : undefined,
@@ -143,8 +142,9 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
               notes: d.notes,
               studyProgramIds: d.studyProgramIds ? d.studyProgramIds.split(',') : [],
               tridharmaCategoryIds: d.tridharmaCategoryIds ? d.tridharmaCategoryIds.split(',') : [],
-            }))
+            })
             await load(row.id)
+            return r
           }}
           onClose={() => setModal(null)}
         />

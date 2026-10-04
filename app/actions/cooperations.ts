@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
-import { safe } from '@/lib/action-result'
+import { safe } from '@/lib/error-message'
 
 const transition: Record<string, string> = { DRAFT: 'SUBMITTED_JURUSAN', SUBMITTED_JURUSAN: 'SUBMITTED_FAKULTAS', SUBMITTED_FAKULTAS: 'SUBMITTED_INSTITUT', SUBMITTED_INSTITUT: 'APPROVED' }
 

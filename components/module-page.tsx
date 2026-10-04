@@ -3,36 +3,104 @@
 import { FormEvent, ReactNode, useState } from 'react'
 import { errorMessage } from '@/lib/error-message'
 
-export type FormField = { name: string; label: string; type?: string; options?: (string | { label: string; value: string; disabled?: boolean })[]; required?: boolean; disabled?: boolean; helpText?: string; multiple?: boolean }
-type ModulePageProps = { title: string; description: string; actionLabel?: string; onSubmit?: (data: Record<string, string>) => Promise<void> | void; fields?: FormField[]; error?: string | null; children?: ReactNode }
+export type FormField = {
+  name: string
+  label: string
+  type?: string
+  options?: (string | { label: string; value: string; disabled?: boolean })[]
+  required?: boolean
+  disabled?: boolean
+  helpText?: string
+  multiple?: boolean
+}
+
+type SubmitHandler = (data: Record<string, string>) => Promise<unknown> | unknown
+
+type ModulePageProps = {
+  title: string
+  description: string
+  actionLabel?: string
+  onSubmit?: SubmitHandler
+  fields?: FormField[]
+  error?: string | null
+  children?: ReactNode
+}
 
 export function ModulePage({ title, description, actionLabel = 'Tambah data', onSubmit, fields = [], error, children }: ModulePageProps) {
   const [open, setOpen] = useState(false)
-  const [data, setData] = useState<Record<string, string>>({})
-  const [formError, setFormError] = useState<string | null>(null)
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setFormError(null)
-    try { await onSubmit?.(data); setData({}); setOpen(false) } catch (e) { setFormError(errorMessage(e)) }
-  }
-  return <main className="min-h-screen min-w-0 bg-[#f5f7fa] p-6 text-[#172b4d] sm:p-10"><div className="mx-auto max-w-7xl"><div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#087f72]">SIMKERMA</p><h1 className="mt-2 text-3xl font-bold">{title}</h1><p className="mt-2 text-sm text-slate-500">{description}</p></div>{onSubmit && <button onClick={() => { setFormError(null); setOpen(true) }} className="rounded-lg bg-[#087f72] px-4 py-2.5 text-sm font-semibold text-white">{actionLabel}</button>}</div>{error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}{children}{open && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><form onSubmit={submit} className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"><h2 className="text-lg font-bold">{actionLabel}</h2><div className="mt-5 grid gap-4">{fields.map((field) => field.options && field.multiple ? <fieldset key={field.name} className="grid gap-2 rounded-lg border p-3"><legend className="px-1 text-sm text-slate-500">{field.label}</legend>{field.options.length === 0 && <span className="text-xs text-slate-500">Belum ada pilihan tersedia.</span>}{field.options.map((option) => { const item = typeof option === 'string' ? { label: option, value: option } : option; const selected = (data[field.name] ?? '').split(',').filter(Boolean); return <label key={item.value} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(item.value)} onChange={(e) => setData({ ...data, [field.name]: (e.target.checked ? [...selected, item.value] : selected.filter((v) => v !== item.value)).join(',') })} />{item.label}</label> })}</fieldset> : field.options ? <select key={field.name} disabled={field.disabled} required={field.required} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="rounded-lg border p-3 text-sm"><option value="">{field.label}</option>{field.options.map((option) => { const item = typeof option === 'string' ? { label: option, value: option } : option; return <option key={item.value} value={item.value} disabled={item.disabled}>{item.label}</option> })}</select> : field.type === 'textarea' ? <textarea key={field.name} disabled={field.disabled} required={field.required} placeholder={field.label} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="min-h-24 rounded-lg border p-3 text-sm" /> : <div key={field.name} className="grid gap-1"><input disabled={field.disabled} required={field.required} type={field.type ?? 'text'} placeholder={field.label} value={data[field.name] ?? ''} onChange={(e) => setData({ ...data, [field.name]: e.target.value })} className="rounded-lg border p-3 text-sm" />{field.helpText && <span className="text-xs text-slate-500">{field.helpText}</span>}</div>)}</div>{formError && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}<div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setOpen(false)} className="rounded-lg border px-4 py-2 text-sm">Batal</button><button className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">Simpan</button></div></form></div>}</div></main>
+  return (
+    <main className="min-h-screen min-w-0 bg-[#f5f7fa] p-6 text-[#172b4d] sm:p-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#087f72]">SIMKERMA</p>
+            <h1 className="mt-2 text-3xl font-bold">{title}</h1>
+            <p className="mt-2 text-sm text-slate-500">{description}</p>
+          </div>
+          {onSubmit && <button onClick={() => setOpen(true)} className="rounded-lg bg-[#087f72] px-4 py-2.5 text-sm font-semibold text-white">{actionLabel}</button>}
+        </div>
+        {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {children}
+        {open && onSubmit && <ActionModal title={actionLabel} fields={fields} onSubmit={onSubmit} onClose={() => setOpen(false)} />}
+      </div>
+    </main>
+  )
 }
 
-export function DataTable({ columns, rows }: { columns: string[]; rows: Record<string, ReactNode>[] }) { return <div className="overflow-hidden rounded-xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{columns.map((column) => <th key={column} className="px-5 py-3">{column}</th>)}</tr></thead><tbody className="divide-y">{rows.map((row, index) => <tr key={index} className="hover:bg-slate-50">{columns.map((column) => <td key={column} className="px-5 py-4">{row[column]}</td>)}</tr>)}</tbody></table></div> }
+export function DataTable({ columns, rows }: { columns: string[]; rows: Record<string, ReactNode>[] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border bg-white">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>{columns.map((column) => <th key={column} className="px-5 py-3">{column}</th>)}</tr>
+        </thead>
+        <tbody className="divide-y">
+          {rows.map((row, index) => (
+            <tr key={index} className="hover:bg-slate-50">
+              {columns.map((column) => <td key={column} className="px-5 py-4">{row[column]}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
-export function EmptyState({ text }: { text: string }) { return <div className="rounded-xl border border-dashed bg-white p-12 text-center text-sm text-slate-500">{text}</div> }
+export function EmptyState({ text }: { text: string }) {
+  return <div className="rounded-xl border border-dashed bg-white p-12 text-center text-sm text-slate-500">{text}</div>
+}
 
-export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel = 'Simpan', initialValues }: { title: string; fields?: FormField[]; onSubmit: (data: Record<string, string>) => Promise<void> | void; onClose: () => void; submitLabel?: string; initialValues?: Record<string, string> }) {
+export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel = 'Simpan', initialValues }: {
+  title: string
+  fields?: FormField[]
+  onSubmit: SubmitHandler
+  onClose: () => void
+  submitLabel?: string
+  initialValues?: Record<string, string>
+}) {
   const [data, setData] = useState<Record<string, string>>(initialValues ?? {})
   const [formError, setFormError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const set = (name: string, value: string) => setData((prev) => ({ ...prev, [name]: value }))
+
   async function submit(event: FormEvent) {
     event.preventDefault()
     setFormError(null)
-    try { await onSubmit(data); onClose() } catch (e) { setFormError(errorMessage(e)) }
+    setBusy(true)
+    try {
+      const err = errorMessage(await onSubmit(data))
+      if (err) { setFormError(err); return }
+      onClose()
+    } catch (e) {
+      setFormError(errorMessage(e) ?? 'Terjadi kesalahan. Coba lagi.')
+    } finally {
+      setBusy(false)
+    }
   }
+
   const labelClass = 'text-xs font-semibold text-slate-500'
   const inputClass = 'rounded-lg border p-3 text-sm'
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 p-4">
       <form onSubmit={submit} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
@@ -49,7 +117,11 @@ export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel
                     const item = typeof option === 'string' ? { label: option, value: option } : option
                     return (
                       <label key={item.value} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={selected.includes(item.value)} onChange={(e) => set(field.name, (e.target.checked ? [...selected, item.value] : selected.filter((v) => v !== item.value)).join(','))} />
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(item.value)}
+                          onChange={(e) => set(field.name, (e.target.checked ? [...selected, item.value] : selected.filter((v) => v !== item.value)).join(','))}
+                        />
                         {item.label}
                       </label>
                     )
@@ -81,7 +153,7 @@ export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel
         {formError && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Batal</button>
-          <button className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">{submitLabel}</button>
+          <button disabled={busy} className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? 'Menyimpan...' : submitLabel}</button>
         </div>
       </form>
     </div>
