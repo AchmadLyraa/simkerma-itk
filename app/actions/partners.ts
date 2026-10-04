@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
+import { safe } from '@/lib/action-result'
 
 export async function getPartnerCategories() {
   await requireScope()
