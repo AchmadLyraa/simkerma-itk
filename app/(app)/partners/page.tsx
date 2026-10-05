@@ -10,7 +10,7 @@ type ModalState = {
   fields: FormField[]
   initialValues?: Record<string, string>
   submitLabel?: string
-  submit: (data: Record<string, string>) => Promise<void>
+  submit: (data: Record<string, string>) => Promise<unknown>
 }
 
 const contactFields: FormField[] = [
@@ -32,15 +32,17 @@ export default function PartnersPage() {
       .then((data) => { setRows(data); setError(null) })
       .catch((e) => { setRows([]); setError(errorMessage(e)) })
 
+  // Muat ulang daftar, lalu teruskan hasil action ke modal (modal yang menampilkan error).
+  const done = async (result: unknown) => { await load(); return result }
+
   useEffect(() => {
     load()
     getPartnerCategories().then(setCategories).catch(() => setCategories([]))
   }, [])
 
-  const categoryOptions = categories.map((x) => ({ label: x.name, value: x.id }))
   const partnerFields: FormField[] = [
     { name: 'name', label: 'Nama mitra', required: true },
-    { name: 'categoryId', label: 'Kategori mitra', options: categoryOptions, required: true },
+    { name: 'categoryId', label: 'Kategori mitra', options: categories.map((x) => ({ label: x.name, value: x.id })), required: true },
     { name: 'address', label: 'Alamat' },
     { name: 'website', label: 'Website' },
   ]
@@ -52,10 +54,9 @@ export default function PartnersPage() {
         description="Kelola mitra dan kontak dalam scope unit organisasi Anda."
         error={error}
         fields={partnerFields}
-        onSubmit={async (data) => {
-          await addPartner({ name: data.name, categoryId: data.categoryId, address: data.address || undefined, website: data.website || undefined })
-          await load()
-        }}
+        onSubmit={async (data) =>
+          done(await addPartner({ name: data.name, categoryId: data.categoryId, address: data.address || undefined, website: data.website || undefined }))
+        }
       >
         {rows.length > 0 ? (
           <DataTable
@@ -73,10 +74,7 @@ export default function PartnersPage() {
                       title: `Ubah mitra: ${row.name}`,
                       fields: partnerFields,
                       initialValues: { name: row.name, categoryId: row.categoryId, address: row.address ?? '', website: row.website ?? '' },
-                      submit: async (d) => {
-                        await updatePartner(row.id, { name: d.name, categoryId: d.categoryId, address: d.address, website: d.website })
-                        await load()
-                      },
+                      submit: async (d) => done(await updatePartner(row.id, { name: d.name, categoryId: d.categoryId, address: d.address, website: d.website })),
                     })}
                   >
                     Ubah
@@ -87,7 +85,7 @@ export default function PartnersPage() {
                       title: `Nonaktifkan mitra "${row.name}"?`,
                       submitLabel: 'Nonaktifkan',
                       fields: [],
-                      submit: async () => { await removePartner(row.id); await load() },
+                      submit: async () => done(await removePartner(row.id)),
                     })}
                   >
                     Nonaktifkan
@@ -105,10 +103,7 @@ export default function PartnersPage() {
                           title: `Ubah kontak: ${contact.name}`,
                           fields: contactFields,
                           initialValues: { name: contact.name, position: contact.position ?? '', phone: contact.phone ?? '', email: contact.email ?? '', isPrimary: String(contact.isPrimary) },
-                          submit: async (d) => {
-                            await updatePartnerContact(contact.id, { name: d.name, position: d.position, phone: d.phone, email: d.email, isPrimary: d.isPrimary === 'true' })
-                            await load()
-                          },
+                          submit: async (d) => done(await updatePartnerContact(contact.id, { name: d.name, position: d.position, phone: d.phone, email: d.email, isPrimary: d.isPrimary === 'true' })),
                         })}
                       >
                         Ubah
@@ -119,7 +114,7 @@ export default function PartnersPage() {
                           title: `Hapus kontak "${contact.name}"?`,
                           submitLabel: 'Hapus',
                           fields: [],
-                          submit: async () => { await deletePartnerContact(contact.id); await load() },
+                          submit: async () => done(await deletePartnerContact(contact.id)),
                         })}
                       >
                         Hapus
@@ -131,10 +126,7 @@ export default function PartnersPage() {
                     onClick={() => setModal({
                       title: `Tambah kontak untuk ${row.name}`,
                       fields: contactFields,
-                      submit: async (d) => {
-                        await addPartnerContact(row.id, { name: d.name, position: d.position || undefined, phone: d.phone || undefined, email: d.email || undefined, isPrimary: d.isPrimary === 'true' })
-                        await load()
-                      },
+                      submit: async (d) => done(await addPartnerContact(row.id, { name: d.name, position: d.position || undefined, phone: d.phone || undefined, email: d.email || undefined, isPrimary: d.isPrimary === 'true' })),
                     })}
                   >
                     + Kontak
