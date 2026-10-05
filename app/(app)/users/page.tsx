@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
-import { assignUserScope, createUser, getUsers, removeUserScope, resetUserPassword, setUserActive } from '@/app/actions/users'
+import { createUser, getUsers, resetUserPassword, setUserActive, setUserRoleScope } from '@/app/actions/users'
 import { getOrganizationalUnits } from '@/app/actions/organizational-units'
 import { errorMessage } from '@/lib/error-message'
 
 type RoleName = 'SUPER_ADMIN' | 'PENGELOLA_INSTITUT' | 'PENGELOLA_FAKULTAS' | 'PENGELOLA_JURUSAN' | 'PENGELOLA_PRODI'
-type ModalState = { title: string; fields: FormField[]; submitLabel?: string; submit: (data: Record<string, string>) => Promise<unknown> }
+type ModalState = { title: string; fields: FormField[]; initialValues?: Record<string, string>; submitLabel?: string; submit: (data: Record<string, string>) => Promise<unknown> }
 
 const roles: RoleName[] = ['SUPER_ADMIN', 'PENGELOLA_INSTITUT', 'PENGELOLA_FAKULTAS', 'PENGELOLA_JURUSAN', 'PENGELOLA_PRODI']
 
@@ -68,12 +68,16 @@ export default function UsersPage() {
                   <button
                     className="font-semibold text-[#087f72]"
                     onClick={() => setModal({
-                      title: `Role & scope: ${user.name}`,
+                      title: `Ubah role & scope: ${user.name}`,
                       fields: [
                         { name: 'role', label: 'Role', options: roles, required: true },
                         { name: 'organizationalUnitId', label: 'Unit scope', options: unitOptions, required: true },
                       ],
-                      submit: async (d) => done(await assignUserScope({ userId: user.id, role: d.role as RoleName, organizationalUnitId: d.organizationalUnitId })),
+                      initialValues: {
+                        role: user.roles[0]?.role.name ?? '',
+                        organizationalUnitId: user.scopes[0]?.organizationalUnitId ?? '',
+                      },
+                      submit: async (d) => done(await setUserRoleScope({ userId: user.id, role: d.role as RoleName, organizationalUnitId: d.organizationalUnitId })),
                     })}
                   >
                     Role &amp; scope
@@ -99,20 +103,6 @@ export default function UsersPage() {
                   >
                     {user.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                   </button>
-                  {user.scopes.map((x: any) => (
-                    <button
-                      key={x.organizationalUnitId}
-                      className="text-red-600"
-                      onClick={() => setModal({
-                        title: `Cabut scope ${x.organizationalUnit.name} dari ${user.name}?`,
-                        submitLabel: 'Cabut',
-                        fields: [],
-                        submit: async () => done(await removeUserScope(user.id, x.organizationalUnitId)),
-                      })}
-                    >
-                      Cabut {x.organizationalUnit.name}
-                    </button>
-                  ))}
                 </div>
               ),
             }))}
@@ -121,7 +111,7 @@ export default function UsersPage() {
           !error && <EmptyState text="Belum ada pengguna untuk dikelola." />
         )}
       </ModulePage>
-      {modal && <ActionModal title={modal.title} fields={modal.fields} submitLabel={modal.submitLabel} onSubmit={modal.submit} onClose={() => setModal(null)} />}
+      {modal && <ActionModal title={modal.title} fields={modal.fields} initialValues={modal.initialValues} submitLabel={modal.submitLabel} onSubmit={modal.submit} onClose={() => setModal(null)} />}
     </>
   )
 }
