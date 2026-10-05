@@ -1,22 +1,27 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ActionModal, DataTable, EmptyState, ModulePage } from '@/components/module-page'
+import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { assignUserScope, createUser, getUsers, removeUserScope, resetUserPassword, setUserActive } from '@/app/actions/users'
 import { getOrganizationalUnits } from '@/app/actions/organizational-units'
 import { errorMessage } from '@/lib/error-message'
 
-const roles = ['SUPER_ADMIN', 'PENGELOLA_INSTITUT', 'PENGELOLA_FAKULTAS', 'PENGELOLA_JURUSAN', 'PENGELOLA_PRODI']
+type RoleName = 'SUPER_ADMIN' | 'PENGELOLA_INSTITUT' | 'PENGELOLA_FAKULTAS' | 'PENGELOLA_JURUSAN' | 'PENGELOLA_PRODI'
+type ModalState = { title: string; fields: FormField[]; submitLabel?: string; submit: (data: Record<string, string>) => Promise<unknown> }
+
+const roles: RoleName[] = ['SUPER_ADMIN', 'PENGELOLA_INSTITUT', 'PENGELOLA_FAKULTAS', 'PENGELOLA_JURUSAN', 'PENGELOLA_PRODI']
 
 export default function UsersPage() {
   const [rows, setRows] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [modal, setModal] = useState<any>(null)
+  const [modal, setModal] = useState<ModalState | null>(null)
 
   const load = () =>
     getUsers()
       .then((data) => { setRows(data); setError(null) })
       .catch((e) => { setRows([]); setError(errorMessage(e)) })
+
+  const done = async (result: unknown) => { await load(); return result }
 
   useEffect(() => {
     load()
@@ -39,16 +44,15 @@ export default function UsersPage() {
           { name: 'role', label: 'Role', options: roles, required: true },
           { name: 'organizationalUnitId', label: 'Unit scope', options: unitOptions, required: true },
         ]}
-        onSubmit={async (data) => {
-          await createUser({
+        onSubmit={async (data) =>
+          done(await createUser({
             name: data.name,
             email: data.email,
             password: data.password,
-            role: data.role as any,
+            role: data.role as RoleName,
             organizationalUnitId: data.organizationalUnitId,
-          })
-          await load()
-        }}
+          }))
+        }
       >
         {rows.length > 0 ? (
           <DataTable
@@ -69,10 +73,7 @@ export default function UsersPage() {
                         { name: 'role', label: 'Role', options: roles, required: true },
                         { name: 'organizationalUnitId', label: 'Unit scope', options: unitOptions, required: true },
                       ],
-                      submit: async (d: Record<string, string>) => {
-                        await assignUserScope({ userId: user.id, role: d.role as any, organizationalUnitId: d.organizationalUnitId })
-                        await load()
-                      },
+                      submit: async (d) => done(await assignUserScope({ userId: user.id, role: d.role as RoleName, organizationalUnitId: d.organizationalUnitId })),
                     })}
                   >
                     Role &amp; scope
@@ -82,7 +83,7 @@ export default function UsersPage() {
                     onClick={() => setModal({
                       title: `Reset password: ${user.name}`,
                       fields: [{ name: 'password', label: 'Password baru (minimal 8 karakter)', type: 'password', required: true }],
-                      submit: async (d: Record<string, string>) => { await resetUserPassword(user.id, d.password) },
+                      submit: async (d) => resetUserPassword(user.id, d.password),
                     })}
                   >
                     Reset password
@@ -93,7 +94,7 @@ export default function UsersPage() {
                       title: `${user.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${user.name}?`,
                       submitLabel: user.isActive ? 'Nonaktifkan' : 'Aktifkan',
                       fields: [],
-                      submit: async () => { await setUserActive(user.id, !user.isActive); await load() },
+                      submit: async () => done(await setUserActive(user.id, !user.isActive)),
                     })}
                   >
                     {user.isActive ? 'Nonaktifkan' : 'Aktifkan'}
@@ -106,7 +107,7 @@ export default function UsersPage() {
                         title: `Cabut scope ${x.organizationalUnit.name} dari ${user.name}?`,
                         submitLabel: 'Cabut',
                         fields: [],
-                        submit: async () => { await removeUserScope(user.id, x.organizationalUnitId); await load() },
+                        submit: async () => done(await removeUserScope(user.id, x.organizationalUnitId)),
                       })}
                     >
                       Cabut {x.organizationalUnit.name}

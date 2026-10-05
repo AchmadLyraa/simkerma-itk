@@ -5,7 +5,7 @@ import { createOrganizationalUnit, deleteOrganizationalUnit, getOrganizationalUn
 import { errorMessage } from '@/lib/error-message'
 
 type UnitType = 'INSTITUTION' | 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'
-type ModalState = { title: string; fields: FormField[]; initialValues?: Record<string, string>; submitLabel?: string; submit: (data: Record<string, string>) => Promise<void> }
+type ModalState = { title: string; fields: FormField[]; initialValues?: Record<string, string>; submitLabel?: string; submit: (data: Record<string, string>) => Promise<unknown> }
 
 const types: UnitType[] = ['INSTITUTION', 'FACULTY', 'DEPARTMENT', 'STUDY_PROGRAM']
 
@@ -18,6 +18,8 @@ export default function OrganizationalUnitsPage() {
     getOrganizationalUnits()
       .then((data) => { setRows(data); setError(null) })
       .catch((e) => { setRows([]); setError(errorMessage(e)) })
+
+  const done = async (result: unknown) => { await load(); return result }
 
   useEffect(() => { load() }, [])
 
@@ -38,10 +40,9 @@ export default function OrganizationalUnitsPage() {
         description="Admin mengelola struktur organisasi."
         error={error}
         fields={unitFields()}
-        onSubmit={async (data) => {
-          await createOrganizationalUnit({ name: data.name, type: data.type as UnitType, parentId: data.parentId || undefined })
-          await load()
-        }}
+        onSubmit={async (data) =>
+          done(await createOrganizationalUnit({ name: data.name, type: data.type as UnitType, parentId: data.parentId || undefined }))
+        }
       >
         {rows.length > 0 ? (
           <DataTable
@@ -58,10 +59,7 @@ export default function OrganizationalUnitsPage() {
                       title: `Ubah unit: ${row.name}`,
                       fields: unitFields(row.id),
                       initialValues: { name: row.name, type: row.type, parentId: row.parentId ?? '' },
-                      submit: async (d) => {
-                        await updateOrganizationalUnit(row.id, { name: d.name, type: d.type as UnitType, parentId: d.parentId || null })
-                        await load()
-                      },
+                      submit: async (d) => done(await updateOrganizationalUnit(row.id, { name: d.name, type: d.type as UnitType, parentId: d.parentId || null })),
                     })}
                   >
                     Ubah
@@ -72,7 +70,7 @@ export default function OrganizationalUnitsPage() {
                       title: `Hapus unit "${row.name}"?`,
                       submitLabel: 'Hapus',
                       fields: [],
-                      submit: async () => { await deleteOrganizationalUnit(row.id); await load() },
+                      submit: async () => done(await deleteOrganizationalUnit(row.id)),
                     })}
                   >
                     Hapus
