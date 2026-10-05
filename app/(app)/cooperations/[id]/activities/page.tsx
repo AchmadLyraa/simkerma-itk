@@ -23,6 +23,8 @@ export default function CooperationActivitiesPage({ params }: { params: Promise<
       .then((data) => { setRows(data); setError(null) })
       .catch((e) => { setRows([]); setError(errorMessage(e)) })
 
+  const done = async (result: unknown) => { await load(id); return result }
+
   useEffect(() => {
     params.then(({ id }) => { setId(id); load(id) })
     getScopedOrganizationalUnits().then(setUnits).catch(() => setUnits([]))
@@ -53,8 +55,8 @@ export default function CooperationActivitiesPage({ params }: { params: Promise<
         description="Catat realisasi kegiatan dari kerja sama terpilih."
         error={error}
         fields={createFields}
-        onSubmit={async (data) => {
-          await createActivity({
+        onSubmit={async (data) =>
+          done(await createActivity({
             cooperationId: id,
             activityType: data.activityType,
             activityName: data.activityName,
@@ -62,9 +64,8 @@ export default function CooperationActivitiesPage({ params }: { params: Promise<
             startDate: data.startDate ? new Date(data.startDate) : undefined,
             endDate: data.endDate ? new Date(data.endDate) : undefined,
             description: data.description || undefined,
-          })
-          await load(id)
-        }}
+          }))
+        }
       >
         <Link href={`/cooperations/${id}`} className="mb-4 inline-block text-sm font-semibold text-[#087f72]">← Kembali ke detail kerja sama</Link>
         {rows.length > 0 ? (
@@ -100,17 +101,16 @@ export default function CooperationActivitiesPage({ params }: { params: Promise<
             description: editing.description ?? '',
             status: editing.status,
           }}
-          onSubmit={async (d) => {
-            await updateActivity(editing.id, {
+          onSubmit={async (d) =>
+            done(await updateActivity(editing.id, {
               activityType: d.activityType,
               activityName: d.activityName,
               startDate: d.startDate ? new Date(d.startDate) : undefined,
               endDate: d.endDate ? new Date(d.endDate) : undefined,
               description: d.description,
               status: d.status as ActivityStatus,
-            })
-            await load(id)
-          }}
+            }))
+          }
           onClose={() => setEditing(null)}
         />
       )}

@@ -22,7 +22,9 @@ export default function ParticipantsPage({ params }: { params: Promise<{ id: str
   }, [params])
 
   async function remove(participantId: string) {
-    try { setError(null); await removeParticipant(participantId); await load(id) } catch (e) { setError(errorMessage(e)) }
+    const err = errorMessage(await removeParticipant(participantId))
+    if (err) setError(err)
+    else await load(id)
   }
 
   return (
@@ -37,7 +39,7 @@ export default function ParticipantsPage({ params }: { params: Promise<{ id: str
         { name: 'organizationalUnitId', label: 'Unit organisasi', options: units.map((x) => ({ label: `${x.name} (${x.type})`, value: x.id })), required: true },
       ]}
       onSubmit={async (data) => {
-        await addParticipant({
+        const r = await addParticipant({
           activityId: id,
           name: data.name,
           identityNumber: data.identityNumber,
@@ -45,6 +47,7 @@ export default function ParticipantsPage({ params }: { params: Promise<{ id: str
           organizationalUnitId: data.organizationalUnitId,
         })
         await load(id)
+        return r
       }}
     >
       {rows.length > 0 ? (

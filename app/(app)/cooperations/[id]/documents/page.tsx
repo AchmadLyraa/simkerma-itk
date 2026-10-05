@@ -16,6 +16,8 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
       .then((data) => { setRows(data); setError(null) })
       .catch((e) => { setRows([]); setError(errorMessage(e)) })
 
+  const done = async (result: unknown) => { await load(id); return result }
+
   useEffect(() => { params.then(({ id }) => { setId(id); load(id) }) }, [params])
 
   return (
@@ -31,17 +33,16 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
           { name: 'documentSource', label: 'Sumber dokumen', options: [{ label: 'Link eksternal', value: 'LINK' }, { label: 'Upload — menunggu integrasi storage', value: 'UPLOAD', disabled: true }], required: true },
           { name: 'fileUrl', label: 'URL dokumen', required: true },
         ]}
-        onSubmit={async (data) => {
-          await createCooperationDocument({
+        onSubmit={async (data) =>
+          done(await createCooperationDocument({
             cooperationId: id,
             title: data.title,
             documentNumber: data.documentNumber || undefined,
             documentType: data.documentType as 'MOU' | 'PKS' | 'IA',
             documentSource: 'LINK',
             fileUrl: data.fileUrl,
-          })
-          await load(id)
-        }}
+          }))
+        }
       >
         <Link href={`/cooperations/${id}`} className="mb-4 inline-block text-sm font-semibold text-[#087f72]">← Kembali ke detail kerja sama</Link>
         {rows.length > 0 ? (
@@ -68,7 +69,7 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
         <ActionModal
           title={`Hapus dokumen "${deleting.title}"?`}
           submitLabel="Hapus"
-          onSubmit={async () => { await deleteCooperationDocument(deleting.id); await load(id) }}
+          onSubmit={async () => done(await deleteCooperationDocument(deleting.id))}
           onClose={() => setDeleting(null)}
         />
       )}
