@@ -344,6 +344,7 @@ model User {
   email String @unique
   passwordHash String @map("password_hash")
   isActive Boolean @default(true) @map("is_active")
+  sessionVersion Int @default(0) @map("session_version")
 
   roles  UserRole[]
   scopes UserOrganizationalUnit[]

@@ -14,11 +14,11 @@ const ROLE_PRIORITY = ['SUPER_ADMIN', 'PENGELOLA_INSTITUT', 'PENGELOLA_FAKULTAS'
 export async function signIn(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, isActive: true } })
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, isActive: true, sessionVersion: true } })
   const valid = user && user.isActive && (await verifyPassword(password, user.passwordHash))
   if (!user || !valid) redirect('/login?error=1')
   const cookieJar = await cookies()
-  cookieJar.set(SESSION_COOKIE, await createSessionToken(user.id), {
+  cookieJar.set(SESSION_COOKIE, await createSessionToken(user.id, user.sessionVersion), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -39,11 +39,13 @@ export async function getCurrentUser() {
       name: true,
       email: true,
       isActive: true,
+      sessionVersion: true,
       roles: { select: { role: { select: { name: true } } } },
       scopes: { select: { organizationalUnitId: true } },
     },
   })
   if (!user || !user.isActive) return null
+  if (user.sessionVersion !== session.v) return null
   const names: string[] = user.roles.map((r) => r.role.name)
   const role = ROLE_PRIORITY.find((r) => names.includes(r))
   if (!role) return null
@@ -64,7 +66,19 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
     if (newPassword === currentPassword) throw new Error('Password baru harus berbeda dari password saat ini')
     const user = await prisma.user.findUnique({ where: { id: session.id }, select: { passwordHash: true } })
     if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) throw new Error('Password saat ini salah')
-    await prisma.user.update({ where: { id: session.id }, data: { passwordHash: await hashPassword(newPassword) } })
+    const updated = await prisma.user.update({
+      where: { id: session.id },
+      data: { passwordHash: await hashPassword(newPassword), sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true },
+    })
+    // Sesi lain mati; sesi ini dibuatkan ulang supaya pengguna tidak ikut keluar.
+    ;(await cookies()).set(SESSION_COOKIE, await createSessionToken(session.id, updated.sessionVersion), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_MAX_AGE,
+    })
     // Password sengaja tidak masuk audit log.
     await writeAuditLog({ userId: session.id, action: 'user.change_password', entityType: 'User', entityId: session.id })
   })

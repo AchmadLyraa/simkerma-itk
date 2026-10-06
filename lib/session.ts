@@ -24,21 +24,21 @@ function fromB64u(value: string) {
   return Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
 }
 
-export async function createSessionToken(userId: string) {
-  const payload = toB64u(enc.encode(JSON.stringify({ sub: userId, exp: Date.now() + SESSION_MAX_AGE * 1000 })))
+export async function createSessionToken(userId: string, version = 0) {
+  const payload = toB64u(enc.encode(JSON.stringify({ sub: userId, v: version, exp: Date.now() + SESSION_MAX_AGE * 1000 })))
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await importKey(), enc.encode(payload)))
   return `${payload}.${toB64u(sig)}`
 }
 
-export async function verifySessionToken(token: string): Promise<{ sub: string } | null> {
+export async function verifySessionToken(token: string): Promise<{ sub: string; v: number } | null> {
   try {
     const [payload, sig] = token.split('.')
     if (!payload || !sig) return null
     const ok = await crypto.subtle.verify('HMAC', await importKey(), fromB64u(sig), enc.encode(payload))
     if (!ok) return null
-    const data = JSON.parse(new TextDecoder().decode(fromB64u(payload))) as { sub?: string; exp?: number }
+    const data = JSON.parse(new TextDecoder().decode(fromB64u(payload))) as { sub?: string; v?: number; exp?: number }
     if (!data.sub || !data.exp || data.exp < Date.now()) return null
-    return { sub: data.sub }
+    return { sub: data.sub, v: data.v ?? 0 }
   } catch {
     return null
   }

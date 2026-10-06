@@ -140,7 +140,7 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     if (!newPassword || newPassword.length < 8) throw new Error('Password minimal 8 karakter')
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
     if (!existing) throw new Error('NOT_FOUND')
-    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(newPassword) } })
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(newPassword), sessionVersion: { increment: 1 } } })
     // Password sengaja tidak masuk audit log.
     await writeAuditLog({ userId: scope.userId, action: 'user.reset_password', entityType: 'User', entityId: userId })
     revalidatePath('/users')
