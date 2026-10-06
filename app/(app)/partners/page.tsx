@@ -66,7 +66,7 @@ export default function PartnersPage() {
               Kategori: row.category?.name ?? '-',
               'Unit organisasi': row.organizationalUnit?.name ?? '-',
               Status: row.isActive ? 'Aktif' : 'Nonaktif',
-              Aksi: (
+              Aksi: row.canEdit ? (
                 <div className="flex gap-3">
                   <button
                     className="font-semibold text-[#087f72]"
@@ -91,46 +91,54 @@ export default function PartnersPage() {
                     Nonaktifkan
                   </button>
                 </div>
+              ) : (
+                <span className="text-xs text-slate-400">Milik unit di atas Anda</span>
               ),
               Kontak: (
                 <div className="space-y-1">
                   {row.contacts.map((contact: any) => (
                     <div key={contact.id} className="flex flex-wrap items-center gap-x-2">
                       <span>{contact.name}{contact.position ? ` (${contact.position})` : ''}{contact.isPrimary ? ' ★' : ''}</span>
-                      <button
-                        className="text-xs font-semibold text-[#087f72]"
-                        onClick={() => setModal({
-                          title: `Ubah kontak: ${contact.name}`,
-                          fields: contactFields,
-                          initialValues: { name: contact.name, position: contact.position ?? '', phone: contact.phone ?? '', email: contact.email ?? '', isPrimary: String(contact.isPrimary) },
-                          submit: async (d) => done(await updatePartnerContact(contact.id, { name: d.name, position: d.position, phone: d.phone, email: d.email, isPrimary: d.isPrimary === 'true' })),
-                        })}
-                      >
-                        Ubah
-                      </button>
-                      <button
-                        className="text-xs font-semibold text-red-600"
-                        onClick={() => setModal({
-                          title: `Hapus kontak "${contact.name}"?`,
-                          submitLabel: 'Hapus',
-                          fields: [],
-                          submit: async () => done(await deletePartnerContact(contact.id)),
-                        })}
-                      >
-                        Hapus
-                      </button>
+                      {row.canEdit && (
+                        <>
+                          <button
+                            className="text-xs font-semibold text-[#087f72]"
+                            onClick={() => setModal({
+                              title: `Ubah kontak: ${contact.name}`,
+                              fields: contactFields,
+                              initialValues: { name: contact.name, position: contact.position ?? '', phone: contact.phone ?? '', email: contact.email ?? '', isPrimary: String(contact.isPrimary) },
+                              submit: async (d) => done(await updatePartnerContact(contact.id, { name: d.name, position: d.position, phone: d.phone, email: d.email, isPrimary: d.isPrimary === 'true' })),
+                            })}
+                          >
+                            Ubah
+                          </button>
+                          <button
+                            className="text-xs font-semibold text-red-600"
+                            onClick={() => setModal({
+                              title: `Hapus kontak "${contact.name}"?`,
+                              submitLabel: 'Hapus',
+                              fields: [],
+                              submit: async () => done(await deletePartnerContact(contact.id)),
+                            })}
+                          >
+                            Hapus
+                          </button>
+                        </>
+                      )}
                     </div>
                   ))}
-                  <button
-                    className="text-xs font-semibold text-[#087f72]"
-                    onClick={() => setModal({
-                      title: `Tambah kontak untuk ${row.name}`,
-                      fields: contactFields,
-                      submit: async (d) => done(await addPartnerContact(row.id, { name: d.name, position: d.position || undefined, phone: d.phone || undefined, email: d.email || undefined, isPrimary: d.isPrimary === 'true' })),
-                    })}
-                  >
-                    + Kontak
-                  </button>
+                  {row.canEdit && (
+                    <button
+                      className="text-xs font-semibold text-[#087f72]"
+                      onClick={() => setModal({
+                        title: `Tambah kontak untuk ${row.name}`,
+                        fields: contactFields,
+                        submit: async (d) => done(await addPartnerContact(row.id, { name: d.name, position: d.position || undefined, phone: d.phone || undefined, email: d.email || undefined, isPrimary: d.isPrimary === 'true' })),
+                      })}
+                    >
+                      + Kontak
+                    </button>
+                  )}
                 </div>
               ),
             }))}

@@ -15,11 +15,13 @@ export async function getPartners() {
   const scope = await requireScope()
   const ids = await scopedOrganizationalUnitIds(scope)
   const upIds = await ancestorOrganizationalUnitIds(scope)
-  return prisma.partner.findMany({
+  const rows = await prisma.partner.findMany({
     where: { isActive: true, ...(ids ? { organizationalUnitId: { in: [...ids, ...(upIds ?? [])] } } : {}) },
     include: { category: true, contacts: true, organizationalUnit: { select: { name: true } }, _count: { select: { cooperations: true } } },
     orderBy: { updatedAt: 'desc' },
   })
+  // canEdit: hanya mitra milik unit user atau unit di bawahnya (sama dengan aturan update di server).
+  return rows.map((row) => ({ ...row, canEdit: ids ? ids.includes(row.organizationalUnitId) : true }))
 }
 
 export async function addPartner(input: { name: string; categoryId?: string; category?: string; type?: string; address?: string; website?: string; generalContact?: string; pksContact?: string; contacts?: Array<{ name: string; position?: string; phone?: string; email?: string; isPrimary?: boolean }> }) {
