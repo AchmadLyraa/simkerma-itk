@@ -124,7 +124,13 @@ export async function submitForApproval(id: string) { return safe(async () => {
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.createdById !== scope.userId && (scope.role as string) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
   if (existing.status !== 'DRAFT') throw new Error('INVALID_TRANSITION')
-  const status = transition[existing.status]
+  const firstLevel: Record<string, string> = {
+    PENGELOLA_PRODI: 'SUBMITTED_JURUSAN',
+    PENGELOLA_JURUSAN: 'SUBMITTED_FAKULTAS',
+    PENGELOLA_FAKULTAS: 'SUBMITTED_INSTITUT',
+    PENGELOLA_INSTITUT: 'APPROVED',
+  }
+  const status = firstLevel[String(scope.role)] ?? 'SUBMITTED_JURUSAN'
   const row = await prisma.cooperation.update({ where: { id }, data: { status: status as never } })
   await writeAuditLog({ userId: scope.userId, action: 'cooperation.submit', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: row.status } })
   revalidatePath('/'); return row

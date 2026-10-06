@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { getCooperationById, getCooperationRegions, getTridharmaCategories, reopenCooperation, submitForApproval, updateCooperation } from '@/app/actions/cooperations'
 import { getScopedOrganizationalUnits } from '@/app/actions/organizational-units'
+import { listCooperationDocuments } from '@/app/actions/documents'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { errorMessage } from '@/lib/error-message'
 
@@ -32,11 +33,14 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
   const [units, setUnits] = useState<any[]>([])
   const [regions, setRegions] = useState<any[]>([])
   const [tridharma, setTridharma] = useState<any[]>([])
+  const [docs, setDocs] = useState<any[]>([])
 
-  const load = (id: string) =>
-    getCooperationById(id)
+  const load = (id: string) => {
+    listCooperationDocuments(id).then(setDocs).catch(() => setDocs([]))
+    return getCooperationById(id)
       .then((data) => { setRow(data); setError(null) })
       .catch(() => setError('Kerja sama tidak ditemukan atau di luar scope Anda.'))
+  }
 
   useEffect(() => {
     params.then(({ id }) => load(id))
@@ -64,7 +68,7 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
         {row && (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Link href={`/cooperations/${row.id}/documents`} className="rounded-xl border bg-white p-5 font-semibold hover:border-[#087f72]">Dokumen</Link>
+              <Link href={`/cooperations/${row.id}/documents`} className="rounded-xl border bg-white p-5 font-semibold hover:border-[#087f72]">Kelola dokumen</Link>
               <Link href={`/cooperations/${row.id}/activities`} className="rounded-xl border bg-white p-5 font-semibold hover:border-[#087f72]">Kegiatan</Link>
               <div className="rounded-xl border bg-white p-5">
                 <p className="text-xs text-slate-500">Status</p>
@@ -94,6 +98,20 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
               <Info label="Catatan">{row.notes}</Info>
             </div>
 
+            <h2 className="mb-3 mt-8 text-lg font-bold">Dokumen</h2>
+            {docs.length > 0 ? (
+              <DataTable
+                columns={['Judul', 'Tipe', 'Nomor', 'Link']}
+                rows={docs.map((d: any) => ({
+                  Judul: d.title,
+                  Tipe: d.documentType,
+                  Nomor: d.documentNumber ?? '-',
+                  Link: d.fileUrl ? <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#087f72]">Buka</a> : '-',
+                }))}
+              />
+            ) : (
+              <EmptyState text="Belum ada dokumen. Tambahkan lewat Kelola dokumen." />
+            )}
             <h2 className="mb-3 mt-8 text-lg font-bold">Histori approval</h2>
             {row.approvals.length > 0 ? (
               <DataTable
