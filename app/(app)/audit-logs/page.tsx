@@ -47,6 +47,7 @@ const actionLabel: Record<string, string> = {
   'user.reset_password': 'Reset password pengguna',
   'cooperation.reopen': 'Kembalikan kerja sama ke draft',
   'user.set_role_scope': 'Ubah role & scope pengguna',
+  'user.change_password': 'Ganti password sendiri',
 }
 
 export default async function AuditLogsPage() {

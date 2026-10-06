@@ -54,13 +54,13 @@ export function Sidebar({ user }: { user: { name: string; email: string; role: s
         ))}
       </nav>
       <div className="border-t border-white/10 px-5 py-4">
-        <div className="flex items-center gap-3">
+        <Link href="/account" aria-current={isActive('/account') ? 'page' : undefined} className="flex items-center gap-3 rounded-lg p-1 hover:bg-white/10">
           <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[#d5f3ed] text-xs font-bold text-[#087f72]">{initials}</div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">{user.name}</p>
             <p className="truncate text-xs text-slate-400">{user.email}</p>
           </div>
-        </div>
+        </Link>
         <p className="mt-3 text-xs font-semibold text-[#35b8a5]">{roleLabel[user.role] ?? user.role}</p>
         <p className="truncate text-xs text-slate-400">{user.unitName ?? 'Tanpa unit'}</p>
         <form action={signOut} className="mt-3">

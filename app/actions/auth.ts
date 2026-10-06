@@ -3,7 +3,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { verifyPassword } from '@/lib/password'
+import { hashPassword, verifyPassword } from '@/lib/password'
+import { writeAuditLog } from '@/lib/audit'
+import { safe } from '@/lib/error-message'
 import { createSessionToken, verifySessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/session'
 
 // Urutan prioritas jika satu user punya beberapa role.
@@ -52,4 +54,18 @@ export async function signOut() {
   const cookieJar = await cookies()
   cookieJar.delete(SESSION_COOKIE)
   redirect('/login')
+}
+
+export async function changeOwnPassword(currentPassword: string, newPassword: string) {
+  return safe(async () => {
+    const session = await getCurrentUser()
+    if (!session) throw new Error('UNAUTHORIZED')
+    if (!newPassword || newPassword.length < 8) throw new Error('Password baru minimal 8 karakter')
+    if (newPassword === currentPassword) throw new Error('Password baru harus berbeda dari password saat ini')
+    const user = await prisma.user.findUnique({ where: { id: session.id }, select: { passwordHash: true } })
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) throw new Error('Password saat ini salah')
+    await prisma.user.update({ where: { id: session.id }, data: { passwordHash: await hashPassword(newPassword) } })
+    // Password sengaja tidak masuk audit log.
+    await writeAuditLog({ userId: session.id, action: 'user.change_password', entityType: 'User', entityId: session.id })
+  })
 }
