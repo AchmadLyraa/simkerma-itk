@@ -45,6 +45,7 @@ const actionLabel: Record<string, string> = {
   'user.activate': 'Aktifkan pengguna',
   'user.deactivate': 'Nonaktifkan pengguna',
   'user.reset_password': 'Reset password pengguna',
+  'cooperation.reopen': 'Kembalikan kerja sama ke draft',
   'user.set_role_scope': 'Ubah role & scope pengguna',
 }
 

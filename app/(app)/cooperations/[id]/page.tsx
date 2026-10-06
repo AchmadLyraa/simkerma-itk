@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { getCooperationById, getCooperationRegions, getTridharmaCategories, submitForApproval, updateCooperation } from '@/app/actions/cooperations'
+import { getCooperationById, getCooperationRegions, getTridharmaCategories, reopenCooperation, submitForApproval, updateCooperation } from '@/app/actions/cooperations'
 import { getScopedOrganizationalUnits } from '@/app/actions/organizational-units'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { errorMessage } from '@/lib/error-message'
@@ -28,7 +28,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 export default function CooperationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [row, setRow] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
-  const [modal, setModal] = useState<'submit' | 'edit' | null>(null)
+  const [modal, setModal] = useState<'submit' | 'edit' | 'reopen' | null>(null)
   const [units, setUnits] = useState<any[]>([])
   const [regions, setRegions] = useState<any[]>([])
   const [tridharma, setTridharma] = useState<any[]>([])
@@ -75,6 +75,11 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
                     <button onClick={() => setModal('submit')} className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">Ajukan untuk approval</button>
                   </div>
                 )}
+                {row.status === 'REJECTED' && (
+                  <div className="mt-4">
+                    <button onClick={() => setModal('reopen')} className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">Kembalikan ke draft</button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -113,6 +118,14 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
           title="Ajukan kerja sama ini untuk approval?"
           submitLabel="Ajukan"
           onSubmit={async () => { const r = await submitForApproval(row.id); await load(row.id); return r }}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'reopen' && row && (
+        <ActionModal
+          title="Kembalikan kerja sama ini ke draft agar bisa diubah dan diajukan ulang?"
+          submitLabel="Kembalikan"
+          onSubmit={async () => { const r = await reopenCooperation(row.id); await load(row.id); return r }}
           onClose={() => setModal(null)}
         />
       )}

@@ -41,3 +41,18 @@ export async function scopedOrganizationalUnitIds(scope: Awaited<ReturnType<type
   }
   return [...ids]
 }
+
+// Unit di atas unit user (parent, kakek, dst). Dipakai untuk melihat mitra milik level atas.
+export async function ancestorOrganizationalUnitIds(scope: Awaited<ReturnType<typeof requireScope>>) {
+  if (isAdmin(scope.role)) return undefined
+  if (!scope.organizationalUnitId) return []
+  const units = await prisma.organizationalUnit.findMany({ select: { id: true, parentId: true } })
+  const parentOf = new Map(units.map((u) => [u.id, u.parentId]))
+  const result = new Set<string>()
+  let cursor = parentOf.get(scope.organizationalUnitId)
+  while (cursor && !result.has(cursor)) {
+    result.add(cursor)
+    cursor = parentOf.get(cursor)
+  }
+  return [...result]
+}

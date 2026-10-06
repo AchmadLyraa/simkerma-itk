@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
+import { ancestorOrganizationalUnitIds, canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
 import { safe } from '@/lib/error-message'
 
@@ -43,7 +43,8 @@ export async function createCooperation(input: { partnerId: string; name: string
   const scope = await requireScope()
   const ids = await scopedOrganizationalUnitIds(scope)
   if (ids && !ids.includes(input.organizationalUnitId)) throw new Error('FORBIDDEN_SCOPE')
-  const partner = await prisma.partner.findFirst({ where: { id: input.partnerId, isActive: true, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, select: { id: true } })
+  const upIds = await ancestorOrganizationalUnitIds(scope)
+  const partner = await prisma.partner.findFirst({ where: { id: input.partnerId, isActive: true, ...(ids ? { organizationalUnitId: { in: [...ids, ...(upIds ?? [])] } } : {}) }, select: { id: true } })
   if (!partner) throw new Error('NOT_FOUND')
   if (!input.name?.trim()) throw new Error('Nama kerja sama wajib diisi')
   const programIds = [...new Set(input.studyProgramIds ?? [])]
@@ -133,6 +134,7 @@ export async function approveCooperation(id: string, note?: string) { return saf
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
+  if (existing.createdById === scope.userId && String(scope.role) !== 'SUPER_ADMIN') throw new Error('Tidak dapat menyetujui atau menolak kerja sama buatan sendiri')
   const next = transition[existing.status] ?? 'APPROVED'
   const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: next as never } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'approved', note } })])
   await writeAuditLog({ userId: scope.userId, action: 'cooperation.approve', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: row[0].status, note } })
@@ -143,7 +145,23 @@ export async function rejectCooperation(id: string, note: string) { return safe(
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
   if (!existing || !canApprove(scope.role, existing.status)) throw new Error('FORBIDDEN')
+  if (existing.createdById === scope.userId && String(scope.role) !== 'SUPER_ADMIN') throw new Error('Tidak dapat menyetujui atau menolak kerja sama buatan sendiri')
   const row = await prisma.$transaction([prisma.cooperation.update({ where: { id }, data: { status: 'REJECTED' } }), prisma.cooperationApproval.create({ data: { cooperationId: id, organizationalUnitId: scope.organizationalUnitId ?? existing.organizationalUnitId, approvedById: scope.userId, action: 'rejected', note } })])
   await writeAuditLog({ userId: scope.userId, action: 'cooperation.reject', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: 'REJECTED', note } })
   revalidatePath('/'); return row[0]
 }) }
+
+export async function reopenCooperation(id: string) {
+  return safe(async () => {
+    const scope = await requireScope()
+    const ids = await scopedOrganizationalUnitIds(scope)
+    const existing = await prisma.cooperation.findFirst({ where: { id, ...(ids ? { organizationalUnitId: { in: ids } } : {}) } })
+    if (!existing) throw new Error('NOT_FOUND')
+    if (existing.createdById !== scope.userId && String(scope.role) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
+    if (existing.status !== 'REJECTED') throw new Error('INVALID_TRANSITION')
+    const row = await prisma.cooperation.update({ where: { id }, data: { status: 'DRAFT' } })
+    await writeAuditLog({ userId: scope.userId, action: 'cooperation.reopen', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: 'DRAFT' } })
+    revalidatePath('/')
+    return row
+  })
+}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
+import { ancestorOrganizationalUnitIds, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
 import { safe } from '@/lib/error-message'
 
@@ -14,8 +14,9 @@ export async function getPartnerCategories() {
 export async function getPartners() {
   const scope = await requireScope()
   const ids = await scopedOrganizationalUnitIds(scope)
+  const upIds = await ancestorOrganizationalUnitIds(scope)
   return prisma.partner.findMany({
-    where: { isActive: true, ...(ids ? { organizationalUnitId: { in: ids } } : {}) },
+    where: { isActive: true, ...(ids ? { organizationalUnitId: { in: [...ids, ...(upIds ?? [])] } } : {}) },
     include: { category: true, contacts: true, organizationalUnit: { select: { name: true } }, _count: { select: { cooperations: true } } },
     orderBy: { updatedAt: 'desc' },
   })
