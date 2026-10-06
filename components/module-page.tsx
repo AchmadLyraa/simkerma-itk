@@ -12,6 +12,8 @@ export type FormField = {
   disabled?: boolean
   helpText?: string
   multiple?: boolean
+  // Opsi dinamis yang bergantung pada isian lain di form (menggantikan `options` bila ada).
+  getOptions?: (data: Record<string, string>) => (string | { label: string; value: string; disabled?: boolean })[]
 }
 
 type SubmitHandler = (data: Record<string, string>) => Promise<unknown> | unknown
@@ -81,7 +83,18 @@ export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel
   const [data, setData] = useState<Record<string, string>>(initialValues ?? {})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const set = (name: string, value: string) => setData((prev) => ({ ...prev, [name]: value }))
+  const set = (name: string, value: string) =>
+    setData((prev) => {
+      const next = { ...prev, [name]: value }
+      // Kosongkan isian dinamis yang nilainya tidak lagi tersedia di opsi barunya.
+      for (const f of fields) {
+        if (f.getOptions && next[f.name]) {
+          const valid = f.getOptions(next).some((o) => (typeof o === 'string' ? o : o.value) === next[f.name])
+          if (!valid) next[f.name] = ''
+        }
+      }
+      return next
+    })
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -107,13 +120,14 @@ export function ActionModal({ title, fields = [], onSubmit, onClose, submitLabel
         <h2 className="text-lg font-bold">{title}</h2>
         <div className="mt-5 grid gap-4">
           {fields.map((field) => {
-            if (field.options && field.multiple) {
+            const options = field.getOptions ? field.getOptions(data) : field.options
+            if (options && field.multiple) {
               const selected = (data[field.name] ?? '').split(',').filter(Boolean)
               return (
                 <fieldset key={field.name} className="grid gap-2 rounded-lg border p-3">
                   <legend className={`px-1 ${labelClass}`}>{field.label}</legend>
-                  {field.options.length === 0 && <span className="text-xs text-slate-500">Belum ada pilihan tersedia.</span>}
-                  {field.options.map((option) => {
+                  {options.length === 0 && <span className="text-xs text-slate-500">Belum ada pilihan tersedia.</span>}
+                  {options.map((option) => {
                     const item = typeof option === 'string' ? { label: option, value: option } : option
                     return (
                       <label key={item.value} className="flex items-center gap-2 text-sm">

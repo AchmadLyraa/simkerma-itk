@@ -9,6 +9,13 @@ type ModalState = { title: string; fields: FormField[]; initialValues?: Record<s
 
 const types: UnitType[] = ['INSTITUTION', 'FACULTY', 'DEPARTMENT', 'STUDY_PROGRAM']
 
+const parentTypeOf: Record<string, string | null> = {
+  INSTITUTION: null,
+  FACULTY: 'INSTITUTION',
+  DEPARTMENT: 'FACULTY',
+  STUDY_PROGRAM: 'DEPARTMENT',
+}
+
 export default function OrganizationalUnitsPage() {
   const [rows, setRows] = useState<any[]>([])
   const [modal, setModal] = useState<ModalState | null>(null)
@@ -23,14 +30,16 @@ export default function OrganizationalUnitsPage() {
 
   useEffect(() => { load() }, [])
 
-  const parentOptions = (excludeId?: string) => [
-    { label: 'Tanpa parent', value: '' },
-    ...rows.filter((x) => x.id !== excludeId).map((x) => ({ label: `${x.name} (${x.type})`, value: x.id })),
-  ]
+  const parentOptions = (type?: string, excludeId?: string) => {
+    if (!type) return [{ label: 'Pilih tipe unit dulu', value: '' }]
+    const expected = parentTypeOf[type]
+    if (!expected) return [{ label: 'Tanpa parent (institusi)', value: '' }]
+    return rows.filter((x) => x.type === expected && x.id !== excludeId).map((x) => ({ label: x.name, value: x.id }))
+  }
   const unitFields = (excludeId?: string): FormField[] => [
     { name: 'name', label: 'Nama unit', required: true },
     { name: 'type', label: 'Tipe unit', options: types, required: true },
-    { name: 'parentId', label: 'Parent unit', options: parentOptions(excludeId) },
+    { name: 'parentId', label: 'Parent unit', getOptions: (d) => parentOptions(d.type, excludeId) },
   ]
 
   return (
