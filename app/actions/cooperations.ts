@@ -28,6 +28,7 @@ export async function getCooperationById(id: string) {
 export async function getPendingApprovals() {
   const scope = await requireScope(); const ids = await scopedOrganizationalUnitIds(scope)
   const role = String(scope.role)
+  if (role === 'PENGELOLA_PRODI') return []
   const statuses = role === 'PENGELOLA_JURUSAN' ? ['SUBMITTED_JURUSAN'] : role === 'PENGELOLA_FAKULTAS' ? ['SUBMITTED_FAKULTAS'] : role === 'PENGELOLA_INSTITUT' ? ['SUBMITTED_INSTITUT'] : ['SUBMITTED_JURUSAN', 'SUBMITTED_FAKULTAS', 'SUBMITTED_INSTITUT']
   return prisma.cooperation.findMany({ where: { status: { in: statuses as never[] }, ...(ids ? { organizationalUnitId: { in: ids } } : {}) }, include: { partner: true, createdBy: true }, orderBy: { updatedAt: 'asc' } })
 }

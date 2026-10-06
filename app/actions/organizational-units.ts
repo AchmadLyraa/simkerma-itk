@@ -8,6 +8,25 @@ import { safe } from '@/lib/error-message'
 
 type UnitType = 'INSTITUTION' | 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'
 
+const parentTypeOf: Record<UnitType, UnitType | null> = {
+  INSTITUTION: null,
+  FACULTY: 'INSTITUTION',
+  DEPARTMENT: 'FACULTY',
+  STUDY_PROGRAM: 'DEPARTMENT',
+}
+
+async function assertValidParent(type: UnitType, parentId: string | null) {
+  const expected = parentTypeOf[type]
+  if (!expected) {
+    if (parentId) throw new Error('Institusi tidak boleh memiliki parent')
+    return
+  }
+  if (!parentId) throw new Error(`Unit bertipe ${type} wajib memiliki parent bertipe ${expected}`)
+  const parent = await prisma.organizationalUnit.findUnique({ where: { id: parentId }, select: { type: true } })
+  if (!parent) throw new Error('NOT_FOUND')
+  if (parent.type !== expected) throw new Error(`Parent unit ${type} harus bertipe ${expected}`)
+}
+
 async function requireAdmin() {
   const scope = await requireScope()
   if (String(scope.role) !== 'SUPER_ADMIN') throw new Error('FORBIDDEN')
@@ -29,6 +48,7 @@ export async function createOrganizationalUnit(input: { name: string; type: Unit
   return safe(async () => {
     const scope = await requireAdmin()
     if (!input.name?.trim()) throw new Error('Nama unit wajib diisi')
+    await assertValidParent(input.type, input.parentId || null)
     const row = await prisma.organizationalUnit.create({ data: { name: input.name.trim(), type: input.type, parentId: input.parentId || null } })
     await writeAuditLog({ userId: scope.userId, action: 'org_unit.create', entityType: 'OrganizationalUnit', entityId: row.id, newValue: row })
     revalidatePath('/organizational-units')
@@ -51,6 +71,13 @@ export async function updateOrganizationalUnit(id: string, input: { name?: strin
         if (cursor === id) throw new Error('Parent tidak valid: akan membuat siklus hierarki')
         cursor = parentOf.get(cursor)
       }
+    }
+    const finalType = input.type ?? existing.type
+    const finalParent = newParentId === undefined ? existing.parentId : newParentId
+    await assertValidParent(finalType, finalParent)
+    if (finalType !== existing.type) {
+      const children = await prisma.organizationalUnit.findMany({ where: { parentId: id }, select: { type: true } })
+      if (children.some((c) => parentTypeOf[c.type] !== finalType)) throw new Error('Tipe tidak dapat diubah: unit anak tidak akan sesuai hierarki')
     }
     const row = await prisma.organizationalUnit.update({
       where: { id },
