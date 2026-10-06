@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { signOut } from '@/app/actions/auth'
 import { getDashboardSummary } from '@/app/actions/dashboard'
-import { Building2, Check, ChevronDown, ClipboardCheck, FileText, LayoutDashboard, Search, Settings, ShieldCheck, Users, X } from 'lucide-react'
+import { Building2, ClipboardCheck, FileText, Search, ShieldCheck, Users } from 'lucide-react'
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>
 

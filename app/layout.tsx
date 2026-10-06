@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'SIMKERMA — Ringkasan Kerja Sama',
-  description: 'Sistem pengelolaan mitra, kontak, dan approval kerja sama Universitas Nusantara.',
+  description: 'Sistem pengelolaan mitra, kontak, dan approval kerja sama Institut Teknologi Kalimantan.',
   icons: {
     icon: [
       {
