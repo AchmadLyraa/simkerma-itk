@@ -1,9 +1,39 @@
 import 'dotenv/config'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { PrismaClient } from './generated/client'
 import { adapter } from './adapter-pg'
 import { hashPassword } from '../lib/password'
 
 const prisma = new PrismaClient({ adapter })
+
+type UnitJson = {
+  institution: {
+    faculties: {
+      name: string
+      departments: {
+        name: string
+        programs: { name: string }[]
+      }[]
+    }[]
+  }
+}
+
+type UnitType = 'FACULTY' | 'DEPARTMENT' | 'STUDY_PROGRAM'
+
+// Cari unit dengan nama, tipe, dan parent yang sama. Buat jika belum ada.
+async function ensureUnit(name: string, type: UnitType, parentId: string) {
+  const existing = await prisma.organizationalUnit.findFirst({
+    where: { name, type, parentId },
+    select: { id: true },
+  })
+  if (existing) return { id: existing.id, created: false }
+  const row = await prisma.organizationalUnit.create({
+    data: { name, type, parentId },
+    select: { id: true },
+  })
+  return { id: row.id, created: true }
+}
 
 async function main() {
   const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@simkerma.test').trim().toLowerCase()
@@ -28,6 +58,27 @@ async function main() {
     (await prisma.organizationalUnit.create({
       data: { name: process.env.SEED_INSTITUTION_NAME ?? 'Institut Teknologi Kalimantan', type: 'INSTITUTION' },
     }))
+
+  const raw = readFileSync(
+    join(process.cwd(), 'prisma', 'data', 'organizational-units.json'),
+    'utf-8',
+  )
+  const units = JSON.parse(raw) as UnitJson
+  let createdCount = 0
+
+  for (const faculty of units.institution.faculties) {
+    const f = await ensureUnit(faculty.name, 'FACULTY', root.id)
+    if (f.created) createdCount++
+    for (const department of faculty.departments) {
+      const d = await ensureUnit(department.name, 'DEPARTMENT', f.id)
+      if (d.created) createdCount++
+      for (const program of department.programs) {
+        const p = await ensureUnit(program.name, 'STUDY_PROGRAM', d.id)
+        if (p.created) createdCount++
+      }
+    }
+  }
+  console.log(`Unit organisasi: ${createdCount} unit baru dibuat.`)
 
   const password = process.env.SEED_ADMIN_PASSWORD
   if (!password || password.length < 8) throw new Error('Isi SEED_ADMIN_PASSWORD (minimal 8 karakter) di .env')

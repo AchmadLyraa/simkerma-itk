@@ -1,0 +1,219 @@
+{
+  "institution": {
+    "name": "Institut Teknologi Kalimantan",
+    "short_name": "ITK",
+    "source": "https://itk.ac.id/fakultas",
+    "faculties": [
+      {
+        "code": "FSTI",
+        "name": "Fakultas Sains dan Teknologi Informasi",
+        "description": "FSTI ITK hadir untuk menjawab tantangan era industri dan teknologi. Melalui program studi unggulan, FSTI mendorong kolaborasi, inovasi, dan solusi nyata bagi masyarakat.",
+        "website": "https://fsti.itk.ac.id",
+        "departments": [
+          {
+            "name": "Jurusan Sains dan Analitika Data",
+            "programs": [
+              {
+                "name": "Matematika",
+                "accreditation": "Baik",
+                "degree": "S.Math.",
+                "curriculum_url": "https://math.itk.ac.id"
+              },
+              {
+                "name": "Ilmu Aktuaria",
+                "accreditation": "Baik",
+                "degree": "S.Aktr.",
+                "curriculum_url": "https://actsci.itk.ac.id"
+              },
+              {
+                "name": "Statistika",
+                "accreditation": "Baik",
+                "degree": "S.Stat.",
+                "curriculum_url": "https://stat.itk.ac.id"
+              },
+              {
+                "name": "Fisika",
+                "accreditation": "Baik Sekali",
+                "degree": "S.Si",
+                "curriculum_url": "https://phy.itk.ac.id"
+              }
+            ]
+          },
+          {
+            "name": "Jurusan Teknik Elektro, Informatika, dan Bisnis",
+            "programs": [
+              {
+                "name": "Informatika",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.Kom.",
+                "curriculum_url": "https://if.itk.ac.id"
+              },
+              {
+                "name": "Sistem Informasi",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.Kom.",
+                "curriculum_url": "https://is.itk.ac.id"
+              },
+              {
+                "name": "Bisnis Digital",
+                "accreditation": "Baik",
+                "degree": "S.Bns.",
+                "curriculum_url": "https://bisnisdigital.itk.ac.id"
+              },
+              {
+                "name": "Teknik Elektro",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.T.",
+                "curriculum_url": "https://ee.itk.ac.id"
+              },
+              {
+                "name": "Teknik Biomedis",
+                "accreditation": "-",
+                "degree": "S.T",
+                "curriculum_url": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "FPB",
+        "name": "Fakultas Pembangunan Berkelanjutan",
+        "description": "FPB ITK adalah Fakultas Pembangunan Berkelanjutan di Institut Teknologi Kalimantan (ITK) yang fokus pada pendidikan dan riset di bidang-bidang terkait pembangunan yang ramah lingkungan dan berkelanjutan, seperti teknologi kemaritiman, teknik lingkungan, dan teknik sipil & perencanaan.",
+        "website": "https://sites.google.com",
+        "departments": [
+          {
+            "name": "Jurusan Teknologi Kemaritiman",
+            "programs": [
+              {
+                "name": "Teknik Perkapalan",
+                "accreditation": "Baik Sekali",
+                "degree": "S.T.",
+                "curriculum_url": "https://na.itk.ac.id"
+              },
+              {
+                "name": "Teknik Kelautan",
+                "accreditation": "Baik",
+                "degree": "S.T.",
+                "curriculum_url": "https://oe.itk.ac.id"
+              },
+              {
+                "name": "Teknik Lingkungan",
+                "accreditation": "Baik Sekali",
+                "degree": "S.T.",
+                "curriculum_url": "https://enviro.itk.ac.id"
+              },
+              {
+                "name": "Teknik Sistem Perkapalan",
+                "accreditation": "-",
+                "degree": "S.T",
+                "curriculum_url": "https://tspitk.com"
+              },
+              {
+                "name": "Teknik Transportasi Laut",
+                "accreditation": "-",
+                "degree": "S.T",
+                "curriculum_url": null
+              }
+            ]
+          },
+          {
+            "name": "Jurusan Teknik Sipil dan Perencanaan",
+            "programs": [
+              {
+                "name": "Teknik Sipil",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.T.",
+                "curriculum_url": "https://ce.itk.ac.id"
+              },
+              {
+                "name": "Perencanaan Wilayah dan Kota",
+                "accreditation": "Baik dan ASIIN",
+                "degree": "S.PWK.",
+                "curriculum_url": "https://urp.itk.ac.id"
+              },
+              {
+                "name": "Arsitektur",
+                "accreditation": "Baik",
+                "degree": "S.Ars.",
+                "curriculum_url": null
+              },
+              {
+                "name": "Desain Komunikasi Visual",
+                "accreditation": "Baik",
+                "degree": "S.Ds.",
+                "curriculum_url": "https://dkv.itk.ac.id"
+              },
+              {
+                "name": "Teknik Geomatika",
+                "accreditation": "-",
+                "degree": "S.T",
+                "curriculum_url": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "FRTI",
+        "name": "Fakultas Rekayasa dan Teknologi Industri",
+        "description": "FRTI di Institut Teknologi Kalimantan adalah fakultas yang fokus pada rekayasa dan teknologi industri, memiliki program studi seperti Teknik Mesin, Teknik Industri, dan Teknik Material & Metalurgi, dengan visi menjadi fakultas yang unggul dan kompeten di bidangnya.",
+        "website": "https://frti.itk.ac.id",
+        "departments": [
+          {
+            "name": "Jurusan Teknologi Industri",
+            "programs": [
+              {
+                "name": "Teknik Mesin",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.T.",
+                "curriculum_url": null
+              },
+              {
+                "name": "Teknik Industri",
+                "accreditation": "Baik Sekali",
+                "degree": "S.T.",
+                "curriculum_url": "https://ie.itk.ac.id"
+              },
+              {
+                "name": "Teknik Logistik",
+                "accreditation": "Baik",
+                "degree": "S.T.",
+                "curriculum_url": "https://le.itk.ac.id"
+              },
+              {
+                "name": "Teknik Material dan Metalurgi",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.T.",
+                "curriculum_url": "https://mme.itk.ac.id"
+              }
+            ]
+          },
+          {
+            "name": "Jurusan Rekayasa Industri",
+            "programs": [
+              {
+                "name": "Teknologi Pangan",
+                "accreditation": "Baik",
+                "degree": "S.TP.",
+                "curriculum_url": "https://foodtech.itk.ac.id"
+              },
+              {
+                "name": "Teknik Kimia",
+                "accreditation": "Baik Sekali dan ASIIN",
+                "degree": "S.T.",
+                "curriculum_url": "https://che.itk.ac.id"
+              },
+              {
+                "name": "Rekayasa Keselamatan",
+                "accreditation": "Baik",
+                "degree": "S.T.",
+                "curriculum_url": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
