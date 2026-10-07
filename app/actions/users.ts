@@ -146,3 +146,61 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     revalidatePath('/users')
   })
 }
+
+// Hapus permanen: hanya untuk user yang belum punya riwayat apa pun.
+export async function deleteUser(userId: string) {
+  return safe(async () => {
+    const scope = await requireAdmin()
+    if (userId === scope.userId) throw new Error('Tidak dapat menghapus akun sendiri')
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        roles: { select: { role: { select: { name: true } } } },
+        _count: {
+          select: {
+            cooperationsCreated: true,
+            documentsUploaded: true,
+            activityDocsUploaded: true,
+            approvalsMade: true,
+            auditLogs: true,
+          },
+        },
+      },
+    })
+    if (!user) throw new Error('NOT_FOUND')
+
+    if (Object.values(user._count).some((n) => n > 0)) {
+      throw new Error('Pengguna sudah memiliki riwayat. Nonaktifkan saja.')
+    }
+
+    const isTargetAdmin = user.roles.some((r) => r.role.name === 'SUPER_ADMIN')
+    if (isTargetAdmin && user.isActive) {
+      const otherAdmins = await prisma.user.count({
+        where: {
+          id: { not: userId },
+          isActive: true,
+          roles: { some: { role: { name: 'SUPER_ADMIN' } } },
+        },
+      })
+      if (otherAdmins === 0) {
+        throw new Error('Tidak dapat menghapus super admin aktif terakhir')
+      }
+    }
+
+    // Role dan scope ikut terhapus lewat cascade.
+    await prisma.user.delete({ where: { id: userId } })
+    await writeAuditLog({
+      userId: scope.userId,
+      action: 'user.delete',
+      entityType: 'User',
+      entityId: userId,
+      oldValue: { name: user.name, email: user.email },
+    })
+    revalidatePath('/users')
+  })
+}

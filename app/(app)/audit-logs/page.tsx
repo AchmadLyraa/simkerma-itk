@@ -49,6 +49,9 @@ const actionLabel: Record<string, string> = {
   'user.set_role_scope': 'Ubah role & scope pengguna',
   'user.change_password': 'Ganti password sendiri',
   'cooperation.delete': 'Hapus kerja sama',
+  'partner.activate': 'Aktifkan mitra',
+  'partner.delete': 'Hapus mitra',
+  'user.delete': 'Hapus pengguna',
 }
 
 export default async function AuditLogsPage() {

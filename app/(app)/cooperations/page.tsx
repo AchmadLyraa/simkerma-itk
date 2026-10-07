@@ -83,10 +83,16 @@ export default function CooperationsPage() {
             Wilayah: row.region?.name ?? '-',
             Aksi: (
               <span className="flex gap-3">
-                <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}`}>
+                <Link
+                  className="rounded-md border border-[#087f72] px-3 py-1 text-xs font-semibold text-[#087f72] hover:bg-[#e8f6f4]"
+                  href={`/cooperations/${row.id}`}
+                >
                   Detail
                 </Link>
-                <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}/documents`}>
+                <Link
+                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  href={`/cooperations/${row.id}/documents`}
+                >
                   Dokumen
                 </Link>
               </span>

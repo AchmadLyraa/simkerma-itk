@@ -16,6 +16,7 @@ import { listCooperationDocuments } from '@/app/actions/documents'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { errorMessage } from '@/lib/error-message'
 import { DocumentLink } from '@/components/document-link'
+import { CalendarCheck, ChevronRight, FileText } from 'lucide-react'
 
 
 const statusLabel: Record<string, string> = {
@@ -79,9 +80,49 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
         {row && (
           <>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Link href={`/cooperations/${row.id}/documents`} className="rounded-xl border bg-white p-5 font-semibold hover:border-[#087f72]">Kelola dokumen</Link>
-              <Link href={`/cooperations/${row.id}/activities`} className="rounded-xl border bg-white p-5 font-semibold hover:border-[#087f72]">Kegiatan</Link>
-              <div className="rounded-xl border bg-white p-5">
+              <Link
+                href={`/cooperations/${row.id}/documents`}
+                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 transition hover:border-[#087f72] hover:shadow-sm"
+              >
+                <div>
+                  <div className="grid size-10 place-items-center rounded-lg bg-[#e8f6f4] text-[#087f72]">
+                    <FileText size={20} />
+                  </div>
+                  <p className="mt-4 font-bold text-slate-900">Dokumen</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    MoU, PKS, dan IA. Simpan sebagai link atau unggah file.
+                  </p>
+                  <p className="mt-3 text-xs font-semibold text-slate-600">
+                    {row.documents.length} dokumen
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#087f72]">
+                  Kelola dokumen
+                  <ChevronRight size={16} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+
+              <Link
+                href={`/cooperations/${row.id}/activities`}
+                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 transition hover:border-[#087f72] hover:shadow-sm"
+              >
+                <div>
+                  <div className="grid size-10 place-items-center rounded-lg bg-[#e8f6f4] text-[#087f72]">
+                    <CalendarCheck size={20} />
+                  </div>
+                  <p className="mt-4 font-bold text-slate-900">Kegiatan</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Catat realisasi kegiatan dan peserta dari kerja sama ini.
+                  </p>
+                  <p className="mt-3 text-xs font-semibold text-slate-600">
+                    {row.activities.length} kegiatan
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#087f72]">
+                  Kelola kegiatan
+                  <ChevronRight size={16} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </Link>              <div className="rounded-xl border bg-white p-5">
                 <p className="text-xs text-slate-500">Status</p>
                 <p className="mt-2 font-bold">{statusLabel[row.status] ?? row.status}</p>
                 {row.status === 'DRAFT' && (

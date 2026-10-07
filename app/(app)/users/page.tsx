@@ -1,7 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
-import { createUser, getUsers, resetUserPassword, setUserActive, setUserRoleScope } from '@/app/actions/users'
+import {
+  createUser,
+  deleteUser,
+  getUsers,
+  resetUserPassword,
+  setUserActive,
+  setUserRoleScope,
+} from '@/app/actions/users'
 import { getOrganizationalUnits } from '@/app/actions/organizational-units'
 import { errorMessage } from '@/lib/error-message'
 
@@ -102,6 +109,19 @@ export default function UsersPage() {
                     })}
                   >
                     {user.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                  </button>
+                  <button
+                    className="font-semibold text-red-600"
+                    onClick={() =>
+                      setModal({
+                        title: `Hapus permanen ${user.name}?`,
+                        submitLabel: 'Hapus',
+                        fields: [],
+                        submit: async () => done(await deleteUser(user.id)),
+                      })
+                    }
+                  >
+                    Hapus
                   </button>
                 </div>
               ),
