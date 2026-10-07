@@ -81,7 +81,16 @@ export default function CooperationsPage() {
             Periode: `${row.startDate ? new Date(row.startDate).toLocaleDateString('id-ID') : '-'} – ${row.endDate ? new Date(row.endDate).toLocaleDateString('id-ID') : '-'}`,
             Status: statusLabel[row.status] ?? row.status,
             Wilayah: row.region?.name ?? '-',
-            Aksi: <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}`}>Detail</Link>,
+            Aksi: (
+              <span className="flex gap-3">
+                <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}`}>
+                  Detail
+                </Link>
+                <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}/documents`}>
+                  Dokumen
+                </Link>
+              </span>
+            ),
           }))}
         />
       ) : (

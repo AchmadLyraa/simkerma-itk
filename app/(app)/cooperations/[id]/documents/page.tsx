@@ -46,6 +46,7 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
       <ModulePage
         title="Dokumen kerja sama"
         description="Simpan dokumen sebagai link atau unggah file langsung."
+        actionLabel="Tambah dokumen"
         error={error}
         fields={[
           { name: 'title', label: 'Judul dokumen', required: true },

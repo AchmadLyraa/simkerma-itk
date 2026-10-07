@@ -1,7 +1,16 @@
 'use client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { getCooperationById, getCooperationRegions, getTridharmaCategories, reopenCooperation, submitForApproval, updateCooperation } from '@/app/actions/cooperations'
+import {
+  deleteCooperation,
+  getCooperationById,
+  getCooperationRegions,
+  getTridharmaCategories,
+  reopenCooperation,
+  submitForApproval,
+  updateCooperation,
+} from '@/app/actions/cooperations'
 import { getScopedOrganizationalUnits } from '@/app/actions/organizational-units'
 import { listCooperationDocuments } from '@/app/actions/documents'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
@@ -30,7 +39,8 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 export default function CooperationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [row, setRow] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
-  const [modal, setModal] = useState<'submit' | 'edit' | 'reopen' | null>(null)
+  const router = useRouter()
+  const [modal, setModal] = useState<'submit' | 'edit' | 'reopen' | 'delete' | null>(null)
   const [units, setUnits] = useState<any[]>([])
   const [regions, setRegions] = useState<any[]>([])
   const [tridharma, setTridharma] = useState<any[]>([])
@@ -83,6 +93,16 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
                 {row.status === 'REJECTED' && (
                   <div className="mt-4">
                     <button onClick={() => setModal('reopen')} className="rounded-lg bg-[#087f72] px-4 py-2 text-sm font-semibold text-white">Kembalikan ke draft</button>
+                  </div>
+                )}
+                {(row.status === 'DRAFT' || row.status === 'REJECTED') && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setModal('delete')}
+                      className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600"
+                    >
+                      Hapus kerja sama
+                    </button>
                   </div>
                 )}
               </div>
@@ -145,6 +165,25 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
           title="Kembalikan kerja sama ini ke draft agar bisa diubah dan diajukan ulang?"
           submitLabel="Kembalikan"
           onSubmit={async () => { const r = await reopenCooperation(row.id); await load(row.id); return r }}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'delete' && row && (
+        <ActionModal
+          title={`Hapus kerja sama "${row.name}"?`}
+          submitLabel="Hapus"
+          fields={[
+            {
+              name: 'info',
+              label: 'Dokumen, kegiatan, peserta, dan histori approval kerja sama ini ikut terhapus. Tindakan ini tidak dapat dibatalkan.',
+              disabled: true,
+            },
+          ]}
+          onSubmit={async () => {
+            const result = await deleteCooperation(row.id)
+            if (result.ok) router.push('/cooperations')
+            return result
+          }}
           onClose={() => setModal(null)}
         />
       )}

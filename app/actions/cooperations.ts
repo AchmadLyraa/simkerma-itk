@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { ancestorOrganizationalUnitIds, canApprove, requireScope, scopedOrganizationalUnitIds } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
 import { safe } from '@/lib/error-message'
+import { deleteObject } from '@/lib/s3'
 
 const transition: Record<string, string> = { DRAFT: 'SUBMITTED_JURUSAN', SUBMITTED_JURUSAN: 'SUBMITTED_FAKULTAS', SUBMITTED_FAKULTAS: 'SUBMITTED_INSTITUT', SUBMITTED_INSTITUT: 'APPROVED' }
 
@@ -169,5 +170,61 @@ export async function reopenCooperation(id: string) {
     await writeAuditLog({ userId: scope.userId, action: 'cooperation.reopen', entityType: 'Cooperation', entityId: id, oldValue: { status: existing.status }, newValue: { status: 'DRAFT' } })
     revalidatePath('/')
     return row
+  })
+}
+
+
+export async function deleteCooperation(id: string) {
+  return safe(async () => {
+    const scope = await requireScope()
+    const ids = await scopedOrganizationalUnitIds(scope)
+    const existing = await prisma.cooperation.findFirst({
+      where: {
+        id,
+        ...(ids ? { organizationalUnitId: { in: ids } } : {}),
+      },
+      include: {
+        documents: {
+          select: {
+            documentSource: true,
+            filePath: true,
+          },
+        },
+      },
+    })
+    if (!existing) throw new Error('NOT_FOUND')
+
+    const isCreator = existing.createdById === scope.userId
+    const isAdminUser = String(scope.role) === 'SUPER_ADMIN'
+    if (!isCreator && !isAdminUser) throw new Error('FORBIDDEN')
+
+    if (existing.status !== 'DRAFT' && existing.status !== 'REJECTED') {
+      throw new Error('Hanya kerja sama berstatus Draft atau Ditolak yang dapat dihapus')
+    }
+
+    const filePaths = existing.documents
+      .filter((d) => d.documentSource === 'UPLOAD' && d.filePath)
+      .map((d) => d.filePath as string)
+
+    await prisma.cooperation.delete({ where: { id } })
+
+    // Gagal hapus file di bucket tidak boleh menggagalkan penghapusan data.
+    for (const path of filePaths) {
+      await deleteObject(path).catch((e) => console.error(e))
+    }
+
+    await writeAuditLog({
+      userId: scope.userId,
+      action: 'cooperation.delete',
+      entityType: 'Cooperation',
+      entityId: id,
+      oldValue: {
+        name: existing.name,
+        status: existing.status,
+        partnerId: existing.partnerId,
+        organizationalUnitId: existing.organizationalUnitId,
+      },
+    })
+    revalidatePath('/')
   })
 }

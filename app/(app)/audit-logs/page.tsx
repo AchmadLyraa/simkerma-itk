@@ -48,6 +48,7 @@ const actionLabel: Record<string, string> = {
   'cooperation.reopen': 'Kembalikan kerja sama ke draft',
   'user.set_role_scope': 'Ubah role & scope pengguna',
   'user.change_password': 'Ganti password sendiri',
+  'cooperation.delete': 'Hapus kerja sama',
 }
 
 export default async function AuditLogsPage() {
