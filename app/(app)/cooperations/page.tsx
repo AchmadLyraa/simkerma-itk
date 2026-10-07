@@ -74,10 +74,11 @@ export default function CooperationsPage() {
     >
       {rows.length > 0 ? (
         <DataTable
-          columns={['Nama', 'Mitra', 'Status', 'Wilayah', 'Aksi']}
+          columns={['Nama', 'Mitra', 'Periode', 'Status', 'Wilayah', 'Aksi']}
           rows={rows.map((row) => ({
             Nama: row.name,
             Mitra: row.partner?.name ?? '-',
+            Periode: `${row.startDate ? new Date(row.startDate).toLocaleDateString('id-ID') : '-'} – ${row.endDate ? new Date(row.endDate).toLocaleDateString('id-ID') : '-'}`,
             Status: statusLabel[row.status] ?? row.status,
             Wilayah: row.region?.name ?? '-',
             Aksi: <Link className="font-semibold text-[#087f72]" href={`/cooperations/${row.id}`}>Detail</Link>,

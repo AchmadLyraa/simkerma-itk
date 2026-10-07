@@ -6,6 +6,7 @@ import { getScopedOrganizationalUnits } from '@/app/actions/organizational-units
 import { listCooperationDocuments } from '@/app/actions/documents'
 import { ActionModal, DataTable, EmptyState, ModulePage, type FormField } from '@/components/module-page'
 import { errorMessage } from '@/lib/error-message'
+import { DocumentLink } from '@/components/document-link'
 
 
 const statusLabel: Record<string, string> = {
@@ -106,7 +107,7 @@ export default function CooperationDetailPage({ params }: { params: Promise<{ id
                   Judul: d.title,
                   Tipe: d.documentType,
                   Nomor: d.documentNumber ?? '-',
-                  Link: d.fileUrl ? <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#087f72]">Buka</a> : '-',
+                  Link: <DocumentLink id={d.id} />,
                 }))}
               />
             ) : (
